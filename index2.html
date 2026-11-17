@@ -95,6 +95,10 @@
 
     const TRIMESTERS = ['1º Trimestre', '2º Trimestre', '3º Trimestre'];
 
+    // Normaliza comparação de nomes de turma (ignora espaços extras e maiúsculas/minúsculas)
+    const sameClassGroup = (a, b) =>
+      String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
     // Identifica se o estudante está transferido (bloqueia notas Bom/Regular/Ruim/Ótimo)
     const isStudentTransferred = (student) => {
       if (!student) return false;
@@ -236,13 +240,13 @@
         plus: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />,
         edit: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />,
         trash: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />,
+        refresh: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />,
         check: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />,
         send: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />,
         printer: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />,
         logout: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />,
         help: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
         close: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />,
-        chart: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />,
         database: <><ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
       };
       return (
@@ -848,14 +852,27 @@
     }
 
     // =========================================================================
-    // 8. LIBERAÇÃO DE FICHAS POR TRIMESTRE (DIREÇÃO)
+    // 8. LIBERAÇÃO, REABERTURA E EXCLUSÃO DE FICHAS POR TRIMESTRE (DIREÇÃO)
     // =========================================================================
-    function ReleaseReportManagement({ teachers, reports, classes, subjects, onReleaseReports, onCancelRelease, onOpenReport }) {
+    function ReleaseReportManagement({
+      teachers,
+      reports,
+      classes,
+      subjects,
+      onReleaseReports,
+      onDeleteReport,
+      onReopenReport,
+      onOpenReport,
+    }) {
       const [trimester, setTrimester] = useState('1º Trimestre');
       const [releaseMode, setReleaseMode] = useState('all');
       const [selectedTeacherId, setSelectedTeacherId] = useState(teachers[0]?.id || '');
       const [selectedClass, setSelectedClass] = useState(classes[0]?.name || '6º Ano A');
       const [selectedSubject, setSelectedSubject] = useState('');
+      const [filterClass, setFilterClass] = useState('all');
+      const [filterStatus, setFilterStatus] = useState('all');
+      const [reportToDelete, setReportToDelete] = useState(null);
+      const [reportToReopen, setReportToReopen] = useState(null);
       const [feedback, setFeedback] = useState(null);
 
       const getTeacherSubjects = (t) => {
@@ -874,6 +891,11 @@
         }
       }, [selectedTeacherId, teachers]);
 
+      const notify = (msg) => {
+        setFeedback(msg);
+        setTimeout(() => setFeedback(null), 4000);
+      };
+
       const handleRelease = async (e) => {
         e.preventDefault();
         const todayStr = new Date().toISOString().split('T')[0];
@@ -886,7 +908,11 @@
             targetClasses.forEach((cls) => {
               targetSubjects.forEach((subj) => {
                 const exists = reports.some(
-                  (r) => r.teacherId === teacher.id && r.classGroup === cls && r.component === subj && r.trimester === trimester
+                  (r) =>
+                    r.teacherId === teacher.id &&
+                    sameClassGroup(r.classGroup, cls) &&
+                    r.component === subj &&
+                    r.trimester === trimester
                 );
                 if (!exists) {
                   created.push({
@@ -897,7 +923,7 @@
                     teacherId: teacher.id,
                     teacherName: teacher.name,
                     component: subj,
-                    classGroup: cls,
+                    classGroup: cls.trim(),
                     date: todayStr,
                     trimester,
                     answers: {},
@@ -918,7 +944,11 @@
           if (teacher) {
             const subj = selectedSubject || getTeacherSubjects(teacher)[0];
             const exists = reports.some(
-              (r) => r.teacherId === teacher.id && r.classGroup === selectedClass && r.component === subj && r.trimester === trimester
+              (r) =>
+                r.teacherId === teacher.id &&
+                sameClassGroup(r.classGroup, selectedClass) &&
+                r.component === subj &&
+                r.trimester === trimester
             );
             if (!exists) {
               created.push({
@@ -929,7 +959,7 @@
                 teacherId: teacher.id,
                 teacherName: teacher.name,
                 component: subj,
-                classGroup: selectedClass,
+                classGroup: selectedClass.trim(),
                 date: todayStr,
                 trimester,
                 answers: {},
@@ -946,20 +976,25 @@
         }
 
         if (created.length === 0) {
-          setFeedback(`Todas as fichas selecionadas para o ${trimester} já foram liberadas anteriormente.`);
+          notify(`Todas as fichas selecionadas para o ${trimester} já foram liberadas anteriormente.`);
         } else {
           await onReleaseReports(created);
-          setFeedback(`${created.length} ficha(s) disponibilizada(s) para preenchimento no ${trimester}!`);
+          notify(`${created.length} ficha(s) disponibilizada(s) para preenchimento no ${trimester}!`);
         }
-        setTimeout(() => setFeedback(null), 4000);
       };
+
+      const filteredReports = reports.filter((r) => {
+        if (filterClass !== 'all' && !sameClassGroup(r.classGroup, filterClass)) return false;
+        if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+        return true;
+      });
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
-            <h2 className="text-lg font-bold text-stone-900">Liberação de Fichas de Pré-Conselho</h2>
+            <h2 className="text-lg font-bold text-stone-900">Liberação e Gerenciamento de Fichas de Pré-Conselho</h2>
             <p className="text-xs text-stone-500 mt-1">
-              Disponibilize as fichas do trimestre para que os professores preencham o questionário oficial.
+              Disponibilize as fichas do trimestre ou reabra/exclua avaliações caso um professor precise refazer.
             </p>
 
             {feedback && (
@@ -1055,19 +1090,43 @@
           </div>
 
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs">
-            <div className="p-4 bg-stone-50 border-b border-stone-200">
+            <div className="p-4 bg-stone-50 border-b border-stone-200 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-stone-900">
-                Fichas Disponibilizadas ({reports.length})
+                Fichas e Avaliações ({filteredReports.length})
               </h3>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  className="bg-white border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                >
+                  <option value="all">Todas as Turmas</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="bg-white border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                >
+                  <option value="all">Todos os Status</option>
+                  <option value="pendente">Pendente</option>
+                  <option value="rascunho">Rascunho</option>
+                  <option value="enviado">Enviado</option>
+                  <option value="visto">Homologado (Visto)</option>
+                </select>
+              </div>
             </div>
-            {reports.length === 0 ? (
+
+            {filteredReports.length === 0 ? (
               <div className="p-8 text-center text-xs text-stone-400">
-                Nenhuma ficha liberada até o momento.
+                Nenhuma ficha encontrada com os filtros selecionados.
               </div>
             ) : (
               <div className="divide-y divide-stone-100">
-                {reports.map((r) => (
-                  <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {filteredReports.map((r) => (
+                  <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/60">
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-bold text-xs text-stone-900">{r.classGroup}</span>
@@ -1087,7 +1146,7 @@
                       <p className="text-xs text-stone-500 mt-0.5">Professor(a): <strong>{r.teacherName}</strong></p>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {r.status !== 'pendente' && (
                         <button
                           type="button"
@@ -1097,21 +1156,74 @@
                           Visualizar / Visto
                         </button>
                       )}
-                      {(r.status === 'pendente' || r.status === 'rascunho') && (
+
+                      {(r.status === 'enviado' || r.status === 'visto') && (
                         <button
                           type="button"
-                          onClick={() => onCancelRelease(r.id)}
-                          className="px-3 py-1.5 text-red-600 hover:bg-red-50 text-xs font-semibold rounded-lg cursor-pointer"
+                          onClick={() => setReportToReopen(r)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold rounded-lg cursor-pointer"
+                          title="Devolve a ficha para o professor editar e enviar novamente"
                         >
-                          Cancelar
+                          <Icon name="refresh" className="w-3.5 h-3.5" />
+                          <span>Reabrir p/ Refazer</span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        onClick={() => setReportToDelete(r)}
+                        className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold rounded-lg cursor-pointer"
+                        title="Excluir esta avaliação definitivamente"
+                      >
+                        <Icon name="trash" className="w-3.5 h-3.5" />
+                        <span>Excluir</span>
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+
+          {/* Confirmação para Excluir Avaliação */}
+          <ConfirmDialog
+            isOpen={!!reportToDelete}
+            title="Excluir Avaliação"
+            message={
+              reportToDelete
+                ? `Tem certeza que deseja excluir definitivamente a ficha de ${reportToDelete.component} (${reportToDelete.classGroup} — ${reportToDelete.trimester}) do(a) Prof. ${reportToDelete.teacherName}? Depois de excluída, você poderá liberá-la novamente.`
+                : ''
+            }
+            confirmText="Sim, Excluir Avaliação"
+            onConfirm={async () => {
+              if (reportToDelete) {
+                await onDeleteReport(reportToDelete.id);
+                notify('Avaliação excluída com sucesso! Caso precise, libere novamente acima.');
+                setReportToDelete(null);
+              }
+            }}
+            onCancel={() => setReportToDelete(null)}
+          />
+
+          {/* Confirmação para Reabrir Avaliação */}
+          <ConfirmDialog
+            isOpen={!!reportToReopen}
+            title="Reabrir Ficha para o Professor Refazer"
+            message={
+              reportToReopen
+                ? `Deseja devolver a ficha de ${reportToReopen.component} (${reportToReopen.classGroup}) para o(a) Prof. ${reportToReopen.teacherName}? O status voltará para "Pendente" e o professor poderá editar e reenviar.`
+                : ''
+            }
+            confirmText="Sim, Reabrir Ficha"
+            onConfirm={async () => {
+              if (reportToReopen) {
+                await onReopenReport(reportToReopen.id);
+                notify(`Ficha devolvida para Prof. ${reportToReopen.teacherName} refazer!`);
+                setReportToReopen(null);
+              }
+            }}
+            onCancel={() => setReportToReopen(null)}
+          />
         </div>
       );
     }
@@ -1126,10 +1238,14 @@
       const [studentRatings, setStudentRatings] = useState(report?.studentRatings || {});
       const [errors, setErrors] = useState([]);
 
-      const classStudents = students.filter((s) => s.classGroup === report.classGroup);
+      // Filtra estritamente os alunos pertencentes à turma desta ficha
+      const classStudents = students
+        .filter((s) => sameClassGroup(s.classGroup, report.classGroup))
+        .sort((a, b) => (a.rollNumber || '').localeCompare(b.rollNumber || '') || (a.name || '').localeCompare(b.name || ''));
+
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
-      // Garante que apenas alunos ATIVOS (não transferidos) recebam conceito avaliativo
+      // Garante que apenas alunos ATIVOS (não transferidos) da turma recebam conceito avaliativo
       const buildCleanStudentRatings = () => {
         const clean = {};
         classStudents.forEach((std) => {
@@ -1261,11 +1377,11 @@
                 </div>
               </div>
 
-              {classStudents.length > 0 && (
+              {classStudents.length > 0 ? (
                 <div className="p-5 bg-stone-50 rounded-2xl border border-stone-200">
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                     <h3 className="text-xs font-extrabold uppercase text-stone-900 font-serif">
-                      Avaliação Individual dos Estudantes ({classStudents.length})
+                      Avaliação Individual dos Estudantes — {report.classGroup} ({classStudents.length})
                     </h3>
                     <span className="text-[11px] text-stone-500">
                       Estudantes transferidos não recebem conceitos avaliativos.
@@ -1346,6 +1462,10 @@
                     })}
                   </div>
                 </div>
+              ) : (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                  Nenhum estudante cadastrado ainda para a turma <strong>{report.classGroup}</strong>. A Direção pode importar a lista desta turma na aba "6. Alunos (Excel)".
+                </div>
               )}
 
               {sortedSections.map((sec) => {
@@ -1400,7 +1520,7 @@
     // =========================================================================
     function ReportViewModal({ report, questions, sections, students, currentUser, onClose, onSignReport }) {
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
-      const classStudents = students.filter((s) => s.classGroup === report.classGroup);
+      const classStudents = students.filter((s) => sameClassGroup(s.classGroup, report.classGroup));
 
       // Separa estudantes ativos em duas listas: Bons (verde) e Ruins / Atenção (vermelho); exclui transferidos
       const goodStudents = [];
@@ -1518,7 +1638,7 @@
               {(goodStudents.length > 0 || badStudents.length > 0 || transferredStudents.length > 0) && (
                 <div className="border border-stone-300 rounded-xl p-4 space-y-4">
                   <h3 className="text-xs font-bold uppercase font-serif border-b border-stone-200 pb-2">
-                    Avaliação Conceitual Individual dos Estudantes — Quadro Comparativo
+                    Avaliação Conceitual Individual dos Estudantes — Quadro Comparativo ({report.classGroup})
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
@@ -1641,7 +1761,7 @@
       const [selectedTrimester, setSelectedTrimester] = useState('1º Trimestre');
 
       useEffect(() => {
-        if (classes.length > 0 && !classes.some((c) => c.name === selectedClass)) {
+        if (classes.length > 0 && !classes.some((c) => sameClassGroup(c.name, selectedClass))) {
           setSelectedClass(classes[0].name);
         }
       }, [classes]);
@@ -1649,7 +1769,7 @@
       // Filtra todas as fichas da turma e trimestre escolhidos que possuam avaliações nos 6 critérios
       const classReports = reports.filter(
         (r) =>
-          r.classGroup === selectedClass &&
+          sameClassGroup(r.classGroup, selectedClass) &&
           r.trimester === selectedTrimester &&
           r.dimensionRatings &&
           Object.keys(r.dimensionRatings).length > 0
@@ -1962,6 +2082,7 @@
       onAddStudent,
       onAddMultipleStudents,
       onDeleteStudent,
+      onDeleteStudentsByClass,
     }) {
       const [name, setName] = useState('');
       const [extra1, setExtra1] = useState(subjects[0] || '');
@@ -1972,6 +2093,7 @@
       const [studentNotes, setStudentNotes] = useState('');
       const [studentClassFilter, setStudentClassFilter] = useState('all');
       const [editingTeacherId, setEditingTeacherId] = useState(null);
+      const [classStudentsToClear, setClassStudentsToClear] = useState(null);
       const [feedback, setFeedback] = useState(null);
 
       const formRef = useRef(null);
@@ -1987,9 +2109,11 @@
         setName('');
         setTeacherPassword('123');
         setExtra1(tab === 'teachers' ? (subjects[0] || '') : '');
-        setExtra2(tab === 'classes' ? 'Matutino' : (classes[0]?.name || '6º Ano A'));
+        const defaultCls = classes[0]?.name || '6º Ano A';
+        setExtra2(tab === 'classes' ? 'Matutino' : defaultCls);
+        setStudentClassFilter('all');
         setSelectedSubjects(subjects[0] ? [subjects[0]] : []);
-        setSelectedClasses(classes[0]?.name ? [classes[0].name] : []);
+        setSelectedClasses(defaultCls ? [defaultCls] : []);
       }, [tab]);
 
       const notify = (msg) => {
@@ -2078,16 +2202,18 @@
           setName('');
         } else if (tab === 'students') {
           const cleanNotes = studentNotes.trim();
+          const targetCls = (extra2 || classes[0]?.name || '6º Ano A').trim();
           const isTransferred = cleanNotes.toLowerCase().includes('transfer');
           await onAddStudent({
             id: `std-${Date.now()}`,
             name: name.trim(),
             rollNumber: extra1 ? extra1.trim().padStart(2, '0') : '',
-            classGroup: extra2 || classes[0]?.name || '6º Ano A',
+            classGroup: targetCls,
             status: isTransferred ? 'transferido' : 'ativo',
             notes: cleanNotes,
           });
-          notify(`Estudante "${name.trim()}" cadastrado(a)!`);
+          setStudentClassFilter(targetCls);
+          notify(`Estudante "${name.trim()}" cadastrado(a) na turma ${targetCls}!`);
           setName('');
           setExtra1('');
           setStudentNotes('');
@@ -2119,7 +2245,7 @@
           notify('Erro: biblioteca de leitura Excel não carregada. Verifique a internet.');
           return;
         }
-        const targetClass = extra2 || classes[0]?.name || '6º Ano A';
+        const targetClass = (extra2 || classes[0]?.name || '6º Ano A').trim();
         const reader = new FileReader();
         reader.onload = async (evt) => {
           try {
@@ -2178,7 +2304,8 @@
 
             if (list.length > 0) {
               await onAddMultipleStudents(list);
-              notify(`${list.length} aluno(s) importado(s) para a turma ${targetClass}!`);
+              setStudentClassFilter(targetClass);
+              notify(`${list.length} aluno(s) importado(s) especificamente para a turma ${targetClass}!`);
             } else {
               notify('Nenhum aluno válido encontrado na planilha. Verifique as colunas: Número | Nome | Observação.');
             }
@@ -2191,6 +2318,10 @@
         };
         reader.readAsArrayBuffer(file);
       };
+
+      const visibleStudents = students
+        .filter((s) => studentClassFilter === 'all' || sameClassGroup(s.classGroup, studentClassFilter))
+        .sort((a, b) => (a.classGroup || '').localeCompare(b.classGroup || '') || (a.rollNumber || '').localeCompare(b.rollNumber || ''));
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -2217,7 +2348,7 @@
                     : 'Cadastro de Professores'
                   : tab === 'classes'
                   ? 'Cadastro de Turmas'
-                  : 'Cadastro de Alunos'}
+                  : 'Cadastro e Importação de Alunos por Turma'}
               </h2>
               {editingTeacherId && (
                 <button
@@ -2296,11 +2427,14 @@
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Turma</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">Turma de Destino *</label>
                     <select
                       value={extra2}
-                      onChange={(e) => setExtra2(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs"
+                      onChange={(e) => {
+                        setExtra2(e.target.value);
+                        setStudentClassFilter(e.target.value);
+                      }}
+                      className="w-full bg-amber-50 border border-amber-400 rounded-xl px-3 py-2 text-xs font-bold text-amber-950"
                     >
                       {classes.map((c) => (
                         <option key={c.id} value={c.name}>{c.name}</option>
@@ -2407,7 +2541,7 @@
                       Importar Turma via Excel (.xlsx, .xls ou .csv)
                     </p>
                     <p className="text-[11px] text-stone-600 mt-0.5">
-                      Colunas da planilha: <strong>Número</strong> | <strong>Nome</strong> | <strong>Observação</strong> (será importado para a turma <strong>{extra2 || classes[0]?.name}</strong>).
+                      Colunas: <strong>Número</strong> | <strong>Nome</strong> | <strong>Observação</strong>. Será salvo apenas na turma selecionada: <strong className="text-amber-900 underline">{extra2 || classes[0]?.name}</strong>.
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -2419,7 +2553,7 @@
                       Baixar Modelo Excel
                     </button>
                     <label className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer">
-                      Selecionar Planilha
+                      Importar p/ {extra2 || classes[0]?.name}
                       <input
                         type="file"
                         accept=".xlsx,.xls,.csv"
@@ -2505,7 +2639,9 @@
               <div key={c.id} className="p-4 flex items-center justify-between text-xs">
                 <div>
                   <p className="font-bold text-stone-900">{c.name}</p>
-                  <p className="text-stone-500">Turno: {c.shift} • Alunos cadastrados: {students.filter((s) => s.classGroup === c.name).length}</p>
+                  <p className="text-stone-500">
+                    Turno: {c.shift} • Alunos cadastrados: <strong>{students.filter((s) => sameClassGroup(s.classGroup, c.name)).length}</strong>
+                  </p>
                 </div>
                 <button type="button" onClick={() => onDeleteClass(c.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg cursor-pointer">
                   <Icon name="trash" className="w-4 h-4" />
@@ -2517,23 +2653,44 @@
               <>
                 <div className="p-3.5 bg-stone-50 flex flex-wrap items-center justify-between gap-2 text-xs">
                   <span className="font-bold text-stone-700">
-                    Estudantes Cadastrados ({students.filter((s) => studentClassFilter === 'all' || s.classGroup === studentClassFilter).length})
+                    Estudantes Cadastrados ({visibleStudents.length})
                   </span>
-                  <select
-                    value={studentClassFilter}
-                    onChange={(e) => setStudentClassFilter(e.target.value)}
-                    className="bg-white border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
-                  >
-                    <option value="all">Todas as Turmas</option>
-                    {classes.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      value={studentClassFilter}
+                      onChange={(e) => {
+                        setStudentClassFilter(e.target.value);
+                        if (e.target.value !== 'all') {
+                          setExtra2(e.target.value);
+                        }
+                      }}
+                      className="bg-white border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                    >
+                      <option value="all">Todas as Turmas</option>
+                      {classes.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name} ({students.filter((s) => sameClassGroup(s.classGroup, c.name)).length})
+                        </option>
+                      ))}
+                    </select>
+
+                    {studentClassFilter !== 'all' && visibleStudents.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setClassStudentsToClear(studentClassFilter)}
+                        className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                      >
+                        Limpar Alunos de {studentClassFilter}
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {students
-                  .filter((s) => studentClassFilter === 'all' || s.classGroup === studentClassFilter)
-                  .sort((a, b) => (a.classGroup || '').localeCompare(b.classGroup || '') || (a.rollNumber || '').localeCompare(b.rollNumber || ''))
-                  .map((s) => (
+                {visibleStudents.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-stone-400">
+                    Nenhum estudante cadastrado nesta seleção.
+                  </div>
+                ) : (
+                  visibleStudents.map((s) => (
                     <div key={s.id} className="p-4 flex items-center justify-between gap-3 text-xs hover:bg-stone-50/70">
                       <div className="flex flex-wrap items-center gap-2">
                         {s.rollNumber && (
@@ -2543,7 +2700,9 @@
                         )}
                         <span className="font-bold text-stone-900">{s.name}</span>
                         <span className="text-stone-400">•</span>
-                        <span className="text-stone-600 font-medium">{s.classGroup}</span>
+                        <span className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 font-bold rounded-md">
+                          {s.classGroup}
+                        </span>
                         {s.notes && (
                           <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
                             isStudentTransferred(s)
@@ -2558,10 +2717,26 @@
                         <Icon name="trash" className="w-4 h-4" />
                       </button>
                     </div>
-                  ))}
+                  ))
+                )}
               </>
             )}
           </div>
+
+          <ConfirmDialog
+            isOpen={!!classStudentsToClear}
+            title="Limpar Lista de Alunos da Turma"
+            message={`Deseja remover apenas os alunos cadastrados na turma "${classStudentsToClear}" para importar uma nova planilha? As demais turmas não serão afetadas.`}
+            confirmText="Sim, Limpar Turma"
+            onConfirm={async () => {
+              if (classStudentsToClear) {
+                await onDeleteStudentsByClass(classStudentsToClear);
+                notify(`Lista de alunos da turma ${classStudentsToClear} limpa com sucesso!`);
+                setClassStudentsToClear(null);
+              }
+            }}
+            onCancel={() => setClassStudentsToClear(null)}
+          />
         </div>
       );
     }
@@ -2637,7 +2812,7 @@
                 id: r.id,
                 name: r.name,
                 rollNumber: r.roll_number,
-                classGroup: r.class_group,
+                classGroup: String(r.class_group || '').trim(),
                 status: r.status,
                 notes: r.notes
               })));
@@ -2662,7 +2837,7 @@
                 teacherId: r.teacher_id,
                 teacherName: r.teacher_name,
                 component: r.component,
-                classGroup: r.class_group,
+                classGroup: String(r.class_group || '').trim(),
                 date: r.date,
                 trimester: r.trimester,
                 answers: r.answers || {},
@@ -2857,6 +3032,17 @@
         }
       };
 
+      const handleDeleteStudentsByClass = async (classGroupName) => {
+        const idsToRemove = students
+          .filter((s) => sameClassGroup(s.classGroup, classGroupName))
+          .map((s) => s.id);
+        setStudents((prev) => prev.filter((s) => !sameClassGroup(s.classGroup, classGroupName)));
+        if (supabase && idsToRemove.length > 0) {
+          const { error } = await supabase.from('students').delete().in('id', idsToRemove);
+          reportDbError(error, 'limpar alunos da turma');
+        }
+      };
+
       const handleReleaseReports = async (newReports) => {
         setReports((prev) => [...newReports, ...prev]);
         if (supabase) {
@@ -2882,11 +3068,36 @@
         }
       };
 
-      const handleCancelRelease = async (id) => {
+      // Exclui qualquer avaliação (pendente, rascunho, enviado ou visto)
+      const handleDeleteReport = async (id) => {
         setReports((prev) => prev.filter((r) => r.id !== id));
+        if (viewingReport?.id === id) setViewingReport(null);
         if (supabase) {
           const { error } = await supabase.from('pre_council_reports').delete().eq('id', id);
-          reportDbError(error, 'cancelar ficha');
+          reportDbError(error, 'excluir avaliação');
+        }
+      };
+
+      // Reabre uma avaliação já enviada para que o professor possa refazer
+      const handleReopenReport = async (id) => {
+        const resetSig = { signed: false };
+        setReports((prev) =>
+          prev.map((r) =>
+            r.id === id
+              ? { ...r, status: 'pendente', diretoraSignature: resetSig, updatedAt: new Date().toISOString() }
+              : r
+          )
+        );
+        if (supabase) {
+          const { error } = await supabase
+            .from('pre_council_reports')
+            .update({
+              status: 'pendente',
+              diretora_signature: resetSig,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', id);
+          reportDbError(error, 'reabrir ficha');
         }
       };
 
@@ -2951,7 +3162,7 @@
       const teachers = users.filter((u) => u.role === 'professor');
       const directorTabs = [
         { id: 'questions', label: '1. Perguntas do Conselho' },
-        { id: 'release', label: '2. Liberar Fichas' },
+        { id: 'release', label: '2. Liberar / Gerenciar Fichas' },
         { id: 'teachers', label: '3. Professores' },
         { id: 'subjects', label: '4. Matérias' },
         { id: 'classes', label: '5. Turmas' },
@@ -3040,7 +3251,8 @@
                     classes={classes}
                     subjects={subjects}
                     onReleaseReports={handleReleaseReports}
-                    onCancelRelease={handleCancelRelease}
+                    onDeleteReport={handleDeleteReport}
+                    onReopenReport={handleReopenReport}
                     onOpenReport={(r) => setViewingReport(r)}
                   />
                 )}
@@ -3061,6 +3273,7 @@
                     onAddStudent={handleAddStudent}
                     onAddMultipleStudents={handleAddMultipleStudents}
                     onDeleteStudent={handleDeleteStudent}
+                    onDeleteStudentsByClass={handleDeleteStudentsByClass}
                   />
                 )}
                 {activeTab === 'charts' && (
