@@ -95,11 +95,9 @@
 
     const TRIMESTERS = ['1º Trimestre', '2º Trimestre', '3º Trimestre'];
 
-    // Normaliza comparação de nomes de turma (ignora espaços extras e maiúsculas/minúsculas)
     const sameClassGroup = (a, b) =>
       String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
-    // Identifica se o estudante está transferido (bloqueia notas Bom/Regular/Ruim/Ótimo)
     const isStudentTransferred = (student) => {
       if (!student) return false;
       const statusStr = String(student.status || '').toLowerCase();
@@ -1185,7 +1183,6 @@
             )}
           </div>
 
-          {/* Confirmação para Excluir Avaliação */}
           <ConfirmDialog
             isOpen={!!reportToDelete}
             title="Excluir Avaliação"
@@ -1205,7 +1202,6 @@
             onCancel={() => setReportToDelete(null)}
           />
 
-          {/* Confirmação para Reabrir Avaliação */}
           <ConfirmDialog
             isOpen={!!reportToReopen}
             title="Reabrir Ficha para o Professor Refazer"
@@ -1238,14 +1234,12 @@
       const [studentRatings, setStudentRatings] = useState(report?.studentRatings || {});
       const [errors, setErrors] = useState([]);
 
-      // Filtra estritamente os alunos pertencentes à turma desta ficha
       const classStudents = students
         .filter((s) => sameClassGroup(s.classGroup, report.classGroup))
         .sort((a, b) => (a.rollNumber || '').localeCompare(b.rollNumber || '') || (a.name || '').localeCompare(b.name || ''));
 
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
 
-      // Garante que apenas alunos ATIVOS (não transferidos) da turma recebam conceito avaliativo
       const buildCleanStudentRatings = () => {
         const clean = {};
         classStudents.forEach((std) => {
@@ -1522,7 +1516,6 @@
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
       const classStudents = students.filter((s) => sameClassGroup(s.classGroup, report.classGroup));
 
-      // Separa estudantes ativos em duas listas: Bons (verde) e Ruins / Atenção (vermelho); exclui transferidos
       const goodStudents = [];
       const badStudents = [];
       const transferredStudents = classStudents.filter((s) => isStudentTransferred(s));
@@ -1634,7 +1627,6 @@
                 );
               })}
 
-              {/* DUAS COLUNAS SEPARADAS: ALUNOS BONS (VERDE) E ALUNOS RUINS / ATENÇÃO (VERMELHO) */}
               {(goodStudents.length > 0 || badStudents.length > 0 || transferredStudents.length > 0) && (
                 <div className="border border-stone-300 rounded-xl p-4 space-y-4">
                   <h3 className="text-xs font-bold uppercase font-serif border-b border-stone-200 pb-2">
@@ -1642,7 +1634,6 @@
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-                    {/* COLUNA 1: ALUNOS BONS / ÓTIMOS (VERDE) */}
                     <div className="border-2 border-emerald-300 bg-emerald-50/60 rounded-xl overflow-hidden">
                       <div className="bg-emerald-700 text-white px-3.5 py-2 flex items-center justify-between">
                         <span className="text-xs font-extrabold uppercase tracking-wide">
@@ -1680,7 +1671,6 @@
                       )}
                     </div>
 
-                    {/* COLUNA 2: ALUNOS RUINS / REGULARES (VERMELHO) */}
                     <div className="border-2 border-rose-300 bg-rose-50/60 rounded-xl overflow-hidden">
                       <div className="bg-rose-700 text-white px-3.5 py-2 flex items-center justify-between">
                         <span className="text-xs font-extrabold uppercase tracking-wide">
@@ -1719,7 +1709,6 @@
                     </div>
                   </div>
 
-                  {/* REGISTRO INFORMATIVO DE TRANSFERIDOS */}
                   {transferredStudents.length > 0 && (
                     <div className="p-2.5 bg-stone-100 border border-stone-200 rounded-lg text-[11px] text-stone-600">
                       <strong>Estudantes Transferidos (sem avaliação conceitual):</strong>{' '}
@@ -1766,7 +1755,6 @@
         }
       }, [classes]);
 
-      // Filtra todas as fichas da turma e trimestre escolhidos que possuam avaliações nos 6 critérios
       const classReports = reports.filter(
         (r) =>
           sameClassGroup(r.classGroup, selectedClass) &&
@@ -1777,7 +1765,6 @@
 
       const calcPct = (count, total) => (total > 0 ? Math.round((count / total) * 100) : 0);
 
-      // Consolida os 6 critérios somando as respostas de todos os professores da turma
       const dimensionStats = EVALUATION_DIMENSIONS.map((dim) => {
         const counts = { otimo: 0, bom: 0, regular: 0, ruim: 0 };
         classReports.forEach((rep) => {
@@ -1800,7 +1787,6 @@
         };
       });
 
-      // Resumo percentual geral da turma (somando os 6 critérios de todas as disciplinas)
       const overallCounts = dimensionStats.reduce(
         (acc, d) => ({
           otimo: acc.otimo + d.counts.otimo,
@@ -1828,7 +1814,6 @@
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-          {/* Filtros e Ação de Impressão */}
           <div className="no-print bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
               <div>
@@ -1872,7 +1857,6 @@
             </button>
           </div>
 
-          {/* Área Imprimível do Gráfico da Turma */}
           <div id="printable-chart-sheet" className="space-y-6">
             <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-200 pb-4">
@@ -1890,7 +1874,6 @@
                 </div>
               </div>
 
-              {/* Professores que já lançaram dados para esta turma */}
               <div className="mt-4">
                 <p className="text-[11px] font-bold uppercase text-stone-500 mb-1.5">
                   Professores e Disciplinas incluídos neste gráfico:
@@ -1913,7 +1896,6 @@
                 )}
               </div>
 
-              {/* Cards de Percentual Geral da Turma */}
               {overallTotal > 0 && (
                 <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200">
@@ -1940,7 +1922,6 @@
               )}
             </div>
 
-            {/* Gráfico de Barras Percentuais por Critério (Os 6 Critérios da Turma) */}
             {overallTotal > 0 && (
               <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 pb-3">
@@ -1973,7 +1954,6 @@
                         </div>
                       </div>
 
-                      {/* Barra empilhada percentual */}
                       <div className="w-full h-7 bg-stone-200 rounded-lg overflow-hidden flex text-[11px] font-extrabold text-white shadow-inner">
                         {dim.pct.otimo > 0 && (
                           <div
@@ -2018,7 +1998,6 @@
               </div>
             )}
 
-            {/* Tabela Comparativa Detalhada por Professor / Disciplina */}
             {classReports.length > 0 && (
               <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs overflow-x-auto">
                 <h3 className="text-sm font-extrabold uppercase font-serif text-stone-900 mb-3">
@@ -2080,6 +2059,7 @@
       onAddClass,
       onDeleteClass,
       onAddStudent,
+      onUpdateStudent,
       onAddMultipleStudents,
       onDeleteStudent,
       onDeleteStudentsByClass,
@@ -2091,8 +2071,10 @@
       const [selectedSubjects, setSelectedSubjects] = useState(subjects[0] ? [subjects[0]] : []);
       const [selectedClasses, setSelectedClasses] = useState([classes[0]?.name || '6º Ano A']);
       const [studentNotes, setStudentNotes] = useState('');
+      const [studentStatusSelect, setStudentStatusSelect] = useState('ativo');
       const [studentClassFilter, setStudentClassFilter] = useState('all');
       const [editingTeacherId, setEditingTeacherId] = useState(null);
+      const [editingStudentId, setEditingStudentId] = useState(null);
       const [classStudentsToClear, setClassStudentsToClear] = useState(null);
       const [feedback, setFeedback] = useState(null);
 
@@ -2106,11 +2088,14 @@
 
       useEffect(() => {
         setEditingTeacherId(null);
+        setEditingStudentId(null);
         setName('');
         setTeacherPassword('123');
         setExtra1(tab === 'teachers' ? (subjects[0] || '') : '');
         const defaultCls = classes[0]?.name || '6º Ano A';
         setExtra2(tab === 'classes' ? 'Matutino' : defaultCls);
+        setStudentNotes('');
+        setStudentStatusSelect('ativo');
         setStudentClassFilter('all');
         setSelectedSubjects(subjects[0] ? [subjects[0]] : []);
         setSelectedClasses(defaultCls ? [defaultCls] : []);
@@ -2139,6 +2124,50 @@
         setSelectedSubjects(subjects[0] ? [subjects[0]] : []);
         setTeacherPassword('123');
         setSelectedClasses(classes[0]?.name ? [classes[0].name] : []);
+      };
+
+      const startEditStudent = (student) => {
+        setEditingStudentId(student.id);
+        setName(student.name);
+        setExtra1(student.rollNumber || '');
+        setExtra2(student.classGroup || classes[0]?.name || '6º Ano A');
+        const transferred = isStudentTransferred(student);
+        setStudentStatusSelect(transferred ? 'transferido' : 'ativo');
+        setStudentNotes(student.notes || '');
+        setTimeout(() => {
+          formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 50);
+      };
+
+      const cancelEditStudent = () => {
+        setEditingStudentId(null);
+        setName('');
+        setExtra1('');
+        setStudentNotes('');
+        setStudentStatusSelect('ativo');
+      };
+
+      const handleQuickToggleTransferred = async (student) => {
+        const currentlyTransferred = isStudentTransferred(student);
+        const nextTransferred = !currentlyTransferred;
+        const cleanedNotes = String(student.notes || '')
+          .replace(/transferido/gi, '')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+
+        const updated = {
+          ...student,
+          status: nextTransferred ? 'transferido' : 'ativo',
+          notes: nextTransferred
+            ? (cleanedNotes ? `${cleanedNotes} • Transferido` : 'Transferido')
+            : cleanedNotes,
+        };
+        await onUpdateStudent(updated);
+        notify(
+          nextTransferred
+            ? `${student.name} marcado(a) como TRANSFERIDO(A).`
+            : `${student.name} reativado(a) como ATIVO(A).`
+        );
       };
 
       const handleCreateOrUpdate = async (e) => {
@@ -2203,20 +2232,46 @@
         } else if (tab === 'students') {
           const cleanNotes = studentNotes.trim();
           const targetCls = (extra2 || classes[0]?.name || '6º Ano A').trim();
-          const isTransferred = cleanNotes.toLowerCase().includes('transfer');
-          await onAddStudent({
-            id: `std-${Date.now()}`,
-            name: name.trim(),
-            rollNumber: extra1 ? extra1.trim().padStart(2, '0') : '',
-            classGroup: targetCls,
-            status: isTransferred ? 'transferido' : 'ativo',
-            notes: cleanNotes,
-          });
-          setStudentClassFilter(targetCls);
-          notify(`Estudante "${name.trim()}" cadastrado(a) na turma ${targetCls}!`);
-          setName('');
-          setExtra1('');
-          setStudentNotes('');
+          const isTransferred =
+            studentStatusSelect === 'transferido' || cleanNotes.toLowerCase().includes('transfer');
+          const finalNotes = isTransferred
+            ? (cleanNotes.toLowerCase().includes('transfer')
+                ? cleanNotes
+                : cleanNotes
+                ? `${cleanNotes} • Transferido`
+                : 'Transferido')
+            : cleanNotes;
+
+          if (editingStudentId) {
+            const existing = students.find((s) => s.id === editingStudentId);
+            if (existing) {
+              await onUpdateStudent({
+                ...existing,
+                name: name.trim(),
+                rollNumber: extra1 ? extra1.trim().padStart(2, '0') : '',
+                classGroup: targetCls,
+                status: isTransferred ? 'transferido' : 'ativo',
+                notes: finalNotes,
+              });
+              notify(`Cadastro de "${name.trim()}" atualizado com sucesso!`);
+            }
+            cancelEditStudent();
+          } else {
+            await onAddStudent({
+              id: `std-${Date.now()}`,
+              name: name.trim(),
+              rollNumber: extra1 ? extra1.trim().padStart(2, '0') : '',
+              classGroup: targetCls,
+              status: isTransferred ? 'transferido' : 'ativo',
+              notes: finalNotes,
+            });
+            setStudentClassFilter(targetCls);
+            notify(`Estudante "${name.trim()}" cadastrado(a) na turma ${targetCls}!`);
+            setName('');
+            setExtra1('');
+            setStudentNotes('');
+            setStudentStatusSelect('ativo');
+          }
         }
       };
 
@@ -2323,6 +2378,8 @@
         .filter((s) => studentClassFilter === 'all' || sameClassGroup(s.classGroup, studentClassFilter))
         .sort((a, b) => (a.classGroup || '').localeCompare(b.classGroup || '') || (a.rollNumber || '').localeCompare(b.rollNumber || ''));
 
+      const isEditingAny = Boolean(editingTeacherId || editingStudentId);
+
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
           {feedback && (
@@ -2335,7 +2392,7 @@
           <div
             ref={formRef}
             className={`bg-white p-6 rounded-2xl border shadow-xs transition-all ${
-              editingTeacherId ? 'border-2 border-amber-400 shadow-md' : 'border-stone-200'
+              isEditingAny ? 'border-2 border-amber-400 shadow-md' : 'border-stone-200'
             }`}
           >
             <div className="flex items-center justify-between mb-4">
@@ -2348,12 +2405,23 @@
                     : 'Cadastro de Professores'
                   : tab === 'classes'
                   ? 'Cadastro de Turmas'
+                  : editingStudentId
+                  ? 'Editar Cadastro do Estudante (Situação / Transferência / Turma)'
                   : 'Cadastro e Importação de Alunos por Turma'}
               </h2>
               {editingTeacherId && (
                 <button
                   type="button"
                   onClick={cancelEditTeacher}
+                  className="text-xs font-semibold text-stone-500 hover:text-stone-800 px-3 py-1 bg-stone-100 rounded-lg cursor-pointer"
+                >
+                  Cancelar Edição
+                </button>
+              )}
+              {editingStudentId && (
+                <button
+                  type="button"
+                  onClick={cancelEditStudent}
                   className="text-xs font-semibold text-stone-500 hover:text-stone-800 px-3 py-1 bg-stone-100 rounded-lg cursor-pointer"
                 >
                   Cancelar Edição
@@ -2427,12 +2495,14 @@
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Turma de Destino *</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">Turma *</label>
                     <select
                       value={extra2}
                       onChange={(e) => {
                         setExtra2(e.target.value);
-                        setStudentClassFilter(e.target.value);
+                        if (!editingStudentId) {
+                          setStudentClassFilter(e.target.value);
+                        }
                       }}
                       className="w-full bg-amber-50 border border-amber-400 rounded-xl px-3 py-2 text-xs font-bold text-amber-950"
                     >
@@ -2448,7 +2518,9 @@
                 type="submit"
                 className="px-4 py-2 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-xl cursor-pointer"
               >
-                {tab === 'teachers' && editingTeacherId ? 'Salvar Alterações' : '+ Cadastrar'}
+                {(tab === 'teachers' && editingTeacherId) || (tab === 'students' && editingStudentId)
+                  ? 'Salvar Alterações'
+                  : '+ Cadastrar'}
               </button>
             </form>
 
@@ -2520,7 +2592,35 @@
 
             {tab === 'students' && (
               <div className="mt-4 pt-4 border-t border-stone-100 space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Situação da Matrícula *
+                    </label>
+                    <select
+                      value={studentStatusSelect}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setStudentStatusSelect(val);
+                        if (val === 'transferido' && !studentNotes.toLowerCase().includes('transfer')) {
+                          setStudentNotes(studentNotes ? `${studentNotes} • Transferido` : 'Transferido');
+                        } else if (val === 'ativo') {
+                          setStudentNotes((prev) =>
+                            prev.replace(/•?\s*transferido/gi, '').trim()
+                          );
+                        }
+                      }}
+                      className={`w-full border rounded-xl px-3 py-2 text-xs font-bold outline-none ${
+                        studentStatusSelect === 'transferido'
+                          ? 'bg-red-50 border-red-300 text-red-800'
+                          : 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                      }`}
+                    >
+                      <option value="ativo">Ativo (Em curso)</option>
+                      <option value="transferido">Transferido (Sem avaliação)</option>
+                    </select>
+                  </div>
+
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-stone-700 mb-1">
                       Observação (Opcional — ex: Transferido, Remanejado)
@@ -2529,40 +2629,48 @@
                       type="text"
                       placeholder="Deixe em branco para aluno ativo ou digite: Transferido"
                       value={studentNotes}
-                      onChange={(e) => setStudentNotes(e.target.value)}
+                      onChange={(e) => {
+                        const txt = e.target.value;
+                        setStudentNotes(txt);
+                        if (txt.toLowerCase().includes('transfer')) {
+                          setStudentStatusSelect('transferido');
+                        }
+                      }}
                       className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none"
                     />
                   </div>
                 </div>
 
-                <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-bold text-stone-800">
-                      Importar Turma via Excel (.xlsx, .xls ou .csv)
-                    </p>
-                    <p className="text-[11px] text-stone-600 mt-0.5">
-                      Colunas: <strong>Número</strong> | <strong>Nome</strong> | <strong>Observação</strong>. Será salvo apenas na turma selecionada: <strong className="text-amber-900 underline">{extra2 || classes[0]?.name}</strong>.
-                    </p>
+                {!editingStudentId && (
+                  <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-stone-800">
+                        Importar Turma via Excel (.xlsx, .xls ou .csv)
+                      </p>
+                      <p className="text-[11px] text-stone-600 mt-0.5">
+                        Colunas: <strong>Número</strong> | <strong>Nome</strong> | <strong>Observação</strong>. Será salvo apenas na turma selecionada: <strong className="text-amber-900 underline">{extra2 || classes[0]?.name}</strong>.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTemplate}
+                        className="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        Baixar Modelo Excel
+                      </button>
+                      <label className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer">
+                        Importar p/ {extra2 || classes[0]?.name}
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleExcelImport}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleDownloadTemplate}
-                      className="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-semibold rounded-lg cursor-pointer"
-                    >
-                      Baixar Modelo Excel
-                    </button>
-                    <label className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer">
-                      Importar p/ {extra2 || classes[0]?.name}
-                      <input
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        onChange={handleExcelImport}
-                        className="hidden"
-                      />
-                    </label>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -2690,34 +2798,77 @@
                     Nenhum estudante cadastrado nesta seleção.
                   </div>
                 ) : (
-                  visibleStudents.map((s) => (
-                    <div key={s.id} className="p-4 flex items-center justify-between gap-3 text-xs hover:bg-stone-50/70">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {s.rollNumber && (
-                          <span className="px-2 py-0.5 bg-stone-100 border border-stone-300 text-stone-800 font-bold rounded-md">
-                            Nº {s.rollNumber}
+                  visibleStudents.map((s) => {
+                    const transferred = isStudentTransferred(s);
+                    return (
+                      <div
+                        key={s.id}
+                        className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs ${
+                          transferred ? 'bg-red-50/30' : 'hover:bg-stone-50/70'
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          {s.rollNumber && (
+                            <span className="px-2 py-0.5 bg-stone-100 border border-stone-300 text-stone-800 font-bold rounded-md">
+                              Nº {s.rollNumber}
+                            </span>
+                          )}
+                          <span className={`font-bold ${transferred ? 'text-stone-500 line-through' : 'text-stone-900'}`}>
+                            {s.name}
                           </span>
-                        )}
-                        <span className="font-bold text-stone-900">{s.name}</span>
-                        <span className="text-stone-400">•</span>
-                        <span className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 font-bold rounded-md">
-                          {s.classGroup}
-                        </span>
-                        {s.notes && (
-                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
-                            isStudentTransferred(s)
-                              ? 'bg-red-50 text-red-700 border-red-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
-                          }`}>
-                            {s.notes}
+                          <span className="text-stone-400">•</span>
+                          <span className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-900 font-bold rounded-md">
+                            {s.classGroup}
                           </span>
-                        )}
+                          {transferred ? (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-red-100 text-red-800 border border-red-300 uppercase">
+                              {s.notes || 'Transferido'}
+                            </span>
+                          ) : (
+                            s.notes && (
+                              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold border bg-amber-50 text-amber-800 border-amber-200">
+                                {s.notes}
+                              </span>
+                            )
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleQuickToggleTransferred(s)}
+                            className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold border cursor-pointer transition-colors ${
+                              transferred
+                                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                                : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
+                            }`}
+                            title={transferred ? 'Reativar aluno como ativo' : 'Marcar aluno como transferido'}
+                          >
+                            {transferred ? 'Reativar Ativo' : 'Marcar Transferido'}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => startEditStudent(s)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg font-semibold cursor-pointer"
+                            title="Editar nome, número, turma ou observação do aluno"
+                          >
+                            <Icon name="edit" className="w-3.5 h-3.5" />
+                            <span>Editar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => onDeleteStudent(s.id)}
+                            className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg cursor-pointer"
+                            title="Excluir aluno"
+                          >
+                            <Icon name="trash" className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
-                      <button type="button" onClick={() => onDeleteStudent(s.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded-lg cursor-pointer shrink-0">
-                        <Icon name="trash" className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </>
             )}
@@ -3009,6 +3160,23 @@
         }
       };
 
+      const handleUpdateStudent = async (updatedStd) => {
+        setStudents((prev) => prev.map((s) => (s.id === updatedStd.id ? updatedStd : s)));
+        if (supabase) {
+          const { error } = await supabase
+            .from('students')
+            .update({
+              name: updatedStd.name,
+              roll_number: updatedStd.rollNumber,
+              class_group: updatedStd.classGroup,
+              status: updatedStd.status,
+              notes: updatedStd.notes,
+            })
+            .eq('id', updatedStd.id);
+          reportDbError(error, 'atualizar aluno');
+        }
+      };
+
       const handleAddMultipleStudents = async (list) => {
         setStudents((prev) => [...prev, ...list]);
         if (supabase) {
@@ -3068,7 +3236,6 @@
         }
       };
 
-      // Exclui qualquer avaliação (pendente, rascunho, enviado ou visto)
       const handleDeleteReport = async (id) => {
         setReports((prev) => prev.filter((r) => r.id !== id));
         if (viewingReport?.id === id) setViewingReport(null);
@@ -3078,7 +3245,6 @@
         }
       };
 
-      // Reabre uma avaliação já enviada para que o professor possa refazer
       const handleReopenReport = async (id) => {
         const resetSig = { signed: false };
         setReports((prev) =>
@@ -3271,6 +3437,7 @@
                     onAddClass={handleAddClass}
                     onDeleteClass={handleDeleteClass}
                     onAddStudent={handleAddStudent}
+                    onUpdateStudent={handleUpdateStudent}
                     onAddMultipleStudents={handleAddMultipleStudents}
                     onDeleteStudent={handleDeleteStudent}
                     onDeleteStudentsByClass={handleDeleteStudentsByClass}
