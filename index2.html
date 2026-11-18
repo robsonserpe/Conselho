@@ -247,6 +247,85 @@
       100% { box-shadow: 0 0 12px rgba(22, 163, 74, 0.65); }
     }
 
+/* =========================================================================
+   TRENÓ DESLIZANDO NO RODAPÉ DA PÁGINA (NEVE ACUMULADA + TRENÓ)
+   ========================================================================= */
+.xmas-bottom-snowbank {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 18px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, #ffffff 60%, #e0f2fe 100%);
+  border-bottom: 4px solid #dc2626;
+  z-index: 56;
+  pointer-events: none;
+}
+
+.xmas-bottom-sled-track {
+  position: fixed;
+  bottom: 8px;
+  left: -260px;
+  z-index: 57;
+  pointer-events: none;
+  animation: bottom-sled-slide 16s ease-in-out infinite;
+}
+
+.xmas-bottom-sled {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  font-size: 26px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.25));
+  animation: sled-tilt 0.7s ease-in-out infinite alternate;
+}
+
+.xmas-sled-trail {
+  font-size: 13px;
+  color: #0284c7;
+  font-weight: 900;
+  letter-spacing: 2px;
+  opacity: 0.75;
+  animation: trail-fade 0.6s infinite alternate;
+}
+
+@keyframes bottom-sled-slide {
+  0% {
+    transform: translateX(0vw);
+  }
+  45% {
+    transform: translateX(55vw);
+  }
+  55% {
+    transform: translateX(58vw);
+  }
+  100% {
+    transform: translateX(130vw);
+  }
+}
+
+@keyframes sled-tilt {
+  0% {
+    transform: rotate(-4deg) translateY(0px);
+  }
+  100% {
+    transform: rotate(4deg) translateY(-3px);
+  }
+}
+
+@keyframes trail-fade {
+  0% { opacity: 0.3; transform: scaleX(0.9); }
+  100% { opacity: 0.9; transform: scaleX(1.1); }
+}
+
+@media print {
+  .xmas-bottom-snowbank,
+  .xmas-bottom-sled-track {
+    display: none !important;
+  }
+}
+
+    
     @media print {
       @page {
         size: A4 portrait;
@@ -623,6 +702,19 @@
               <span className="santa-sparkle text-sm">🎄</span>
             </div>
           </div>
+
+
+        {/* Monte de Neve e Trenó Escorregando no Fim da Página */}
+<div className="xmas-bottom-snowbank no-print" aria-hidden="true" />
+<div className="xmas-bottom-sled-track no-print" aria-hidden="true">
+  <div className="xmas-bottom-sled">
+    <span className="xmas-sled-trail">❄️〰️〰️</span>
+    <span>🛷</span>
+    <span className="text-xl">🎁🎄</span>
+  </div>
+</div>
+
+          
         </>
       );
     }
