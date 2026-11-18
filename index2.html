@@ -115,16 +115,83 @@
       : null;
 
     // =========================================================================
-    // 2. CONSTANTES E DADOS INICIAIS DA ESCOLA
+    // 2. CONSTANTES, EVENTOS LETIVOS E FUNÇÕES AUXILIARES
     // =========================================================================
     const SCHOOL_NAME = 'ESCOLA ESTADUAL DO CAMPO FREI GRACIANO DROESSLER';
     const SCHOOL_SUBTITLE = 'ENSINO FUNDAMENTAL E MÉDIO';
     const REPORT_TITLE = 'FICHA INDIVIDUAL DE PRÉ-CONSELHO DE CLASSE';
 
+    const CURRENT_YEAR = new Date().getFullYear();
+    const SCHOOL_YEARS = [2025, 2026, 2027, 2028, 2029, 2030];
     const TRIMESTERS = ['1º Trimestre', '2º Trimestre', '3º Trimestre'];
 
-    const sameClassGroup = (a, b) =>
+    const formatEventLabel = (year, periodName) => {
+      const cleanPeriod = String(periodName || '').trim();
+      if (!cleanPeriod) return `${year} • 1º Trimestre`;
+      if (/^\d{4}\s*[•\-]/.test(cleanPeriod)) return cleanPeriod;
+      return `${year} • ${cleanPeriod}`;
+    };
+
+    const normalizeEventLabel = (rawTrimester) => {
+      const val = String(rawTrimester || '').trim();
+      if (!val) return `${CURRENT_YEAR} • 1º Trimestre`;
+      if (/^\d{4}\s*[•\-]/.test(val)) return val;
+      return `2026 • ${val}`;
+    };
+
+    const sameText = (a, b) =>
       String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+    const sameClassGroup = (a, b) => sameText(a, b);
+
+    // Extrai TODAS as matérias do professor (do array `subjects` ou do texto `subject`)
+    const extractTeacherSubjects = (teacher, fallbackSubjects = []) => {
+      if (!teacher) return fallbackSubjects.length ? [fallbackSubjects[0]] : ['Componente Curricular'];
+      const combined = [];
+
+      if (Array.isArray(teacher.subjects)) {
+        teacher.subjects.forEach((s) => {
+          const clean = String(s || '').trim();
+          if (clean && !combined.some((x) => sameText(x, clean))) combined.push(clean);
+        });
+      }
+
+      if (teacher.subject) {
+        String(teacher.subject)
+          .split(/[,;|/]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((clean) => {
+            if (!combined.some((x) => sameText(x, clean))) combined.push(clean);
+          });
+      }
+
+      if (combined.length > 0) return combined;
+      return fallbackSubjects.length ? [fallbackSubjects[0]] : ['Componente Curricular'];
+    };
+
+    // Extrai TODAS as turmas do professor (seja array ou texto separado por vírgula)
+    const extractTeacherClasses = (teacher) => {
+      if (!teacher) return [];
+      const combined = [];
+
+      if (Array.isArray(teacher.classes)) {
+        teacher.classes.forEach((c) => {
+          const clean = String(c || '').trim();
+          if (clean && !combined.some((x) => sameClassGroup(x, clean))) combined.push(clean);
+        });
+      } else if (typeof teacher.classes === 'string' && teacher.classes.trim()) {
+        teacher.classes
+          .split(/[,;|/]+/)
+          .map((c) => c.trim())
+          .filter(Boolean)
+          .forEach((clean) => {
+            if (!combined.some((x) => sameClassGroup(x, clean))) combined.push(clean);
+          });
+      }
+
+      return combined;
+    };
 
     const isStudentTransferred = (student) => {
       if (!student) return false;
@@ -150,8 +217,8 @@
 
     const SEED_USERS = [
       { id: 'dir-1', name: 'Diretora', username: 'Diretora', email: 'direcao@freigraciano.pr.gov.br', password: '123', role: 'diretora', subject: '', subjects: [], classes: [] },
-      { id: 'prof-1', name: 'Ana Paula Ferreira', username: 'Ana Paula Ferreira', email: 'ana.ferreira@escola.gov.br', password: '123', role: 'professor', subject: 'Língua Portuguesa', subjects: ['Língua Portuguesa', 'Projeto de Vida'], classes: ['6º Ano A', '7º Ano A'] },
-      { id: 'prof-2', name: 'Carlos Eduardo Souza', username: 'Carlos Eduardo Souza', email: 'carlos.souza@escola.gov.br', password: '123', role: 'professor', subject: 'Matemática', subjects: ['Matemática', 'Física'], classes: ['6º Ano A', '8º Ano A'] },
+      { id: 'prof-1', name: 'Ana Paula Ferreira', username: 'Ana Paula Ferreira', email: 'ana.ferreira@escola.gov.br', password: '123', role: 'professor', subject: 'Língua Portuguesa, Projeto de Vida', subjects: ['Língua Portuguesa', 'Projeto de Vida'], classes: ['6º Ano A', '7º Ano A'] },
+      { id: 'prof-2', name: 'Carlos Eduardo Souza', username: 'Carlos Eduardo Souza', email: 'carlos.souza@escola.gov.br', password: '123', role: 'professor', subject: 'Matemática, Física', subjects: ['Matemática', 'Física'], classes: ['6º Ano A', '8º Ano A'] },
     ];
 
     const SEED_CLASSES = [
@@ -274,6 +341,7 @@
         help: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
         close: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />,
         download: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />,
+        calendar: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />,
         database: <><ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
       };
       return (
@@ -342,38 +410,36 @@
       );
     }
 
-
-// =========================================================================
-// 5. LOGO OFICIAL DA ESCOLA
-// =========================================================================
-function SchoolLogo({ size = 'md' }) {
-  const dim = size === 'lg' ? 'w-20 h-20' : 'w-12 h-12';
-  return (
-    <div className="flex items-center gap-3 select-none">
-      <div className={`${dim} shrink-0 flex items-center justify-center bg-white rounded-xl p-1 border border-stone-200 shadow-xs`}>
-        <img
-          src="logo_frei.jpg"
-          alt="Logo E.E.C. Frei Graciano Droessler"
-          className="w-full h-full object-contain"
-        />
-      </div>
-      <div className="flex flex-col leading-none">
-        <div className="flex items-center gap-1.5">
-          <span className="font-black uppercase tracking-wider text-stone-900 text-sm sm:text-base">
-            Pré-Conselho
-          </span>
-          <span className="font-bold uppercase tracking-widest text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-            Digital
-          </span>
+    // =========================================================================
+    // 5. LOGO OFICIAL DA ESCOLA
+    // =========================================================================
+    function SchoolLogo({ size = 'md' }) {
+      const dim = size === 'lg' ? 'w-20 h-20' : 'w-12 h-12';
+      return (
+        <div className="flex items-center gap-3 select-none">
+          <div className={`${dim} shrink-0 flex items-center justify-center bg-white rounded-xl p-1 border border-stone-200 shadow-xs`}>
+            <img
+              src="logo_frei.jpg"
+              alt="Logo E.E.C. Frei Graciano Droessler"
+              className="w-full h-full object-contain"
+            />
+          </div>
+          <div className="flex flex-col leading-none">
+            <div className="flex items-center gap-1.5">
+              <span className="font-black uppercase tracking-wider text-stone-900 text-sm sm:text-base">
+                Pré-Conselho
+              </span>
+              <span className="font-bold uppercase tracking-widest text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+                Digital
+              </span>
+            </div>
+            <span className="font-medium tracking-wider uppercase mt-1 text-[10px] text-stone-500">
+              E.E.C. Frei Graciano Droessler
+            </span>
+          </div>
         </div>
-        <span className="font-medium tracking-wider uppercase mt-1 text-[10px] text-stone-500">
-          E.E.C. Frei Graciano Droessler
-        </span>
-      </div>
-    </div>
-  );
-}
-
+      );
+    }
 
     // =========================================================================
     // 6. TELA DE LOGIN
@@ -410,7 +476,7 @@ function SchoolLogo({ size = 'md' }) {
                 {SCHOOL_NAME}
               </h1>
               <p className="text-xs text-stone-500 mt-1">
-                Sistema Integrado de Gestão de Pré-Conselho de Classe (Trimestral)
+                Sistema Integrado de Gestão de Pré-Conselho de Classe (Por Ano Letivo e Evento)
               </p>
             </div>
 
@@ -588,7 +654,7 @@ function SchoolLogo({ size = 'md' }) {
                 </h2>
               </div>
               <p className="text-xs text-stone-500 mt-1">
-                Organize as seções e cadastre as perguntas oficiais que os professores responderão antes do Conselho de Classe trimestral.
+                Organize as seções e cadastre as perguntas oficiais que os professores responderão antes de cada evento de Conselho de Classe.
               </p>
             </div>
 
@@ -890,7 +956,7 @@ function SchoolLogo({ size = 'md' }) {
     }
 
     // =========================================================================
-    // 8. LIBERAÇÃO, REABERTURA E EXCLUSÃO DE FICHAS POR TRIMESTRE (DIREÇÃO)
+    // 8. LIBERAÇÃO, REABERTURA E EXCLUSÃO DE FICHAS POR EVENTO / ANO LETIVO
     // =========================================================================
     function ReleaseReportManagement({
       teachers,
@@ -902,55 +968,83 @@ function SchoolLogo({ size = 'md' }) {
       onReopenReport,
       onOpenReport,
     }) {
-      const [trimester, setTrimester] = useState('1º Trimestre');
+      const [eventYear, setEventYear] = useState(CURRENT_YEAR);
+      const [trimesterPreset, setTrimesterPreset] = useState('1º Trimestre');
+      const [customEventName, setCustomEventName] = useState('');
       const [releaseMode, setReleaseMode] = useState('all');
       const [selectedTeacherId, setSelectedTeacherId] = useState(teachers[0]?.id || '');
-      const [selectedClass, setSelectedClass] = useState(classes[0]?.name || '6º Ano A');
-      const [selectedSubject, setSelectedSubject] = useState('');
+      const [selectedTeacherSubjects, setSelectedTeacherSubjects] = useState([]);
+      const [selectedTeacherClasses, setSelectedTeacherClasses] = useState([]);
+
+      const [filterEvent, setFilterEvent] = useState('all');
       const [filterClass, setFilterClass] = useState('all');
       const [filterStatus, setFilterStatus] = useState('all');
       const [reportToDelete, setReportToDelete] = useState(null);
       const [reportToReopen, setReportToReopen] = useState(null);
       const [feedback, setFeedback] = useState(null);
 
-      const getTeacherSubjects = (t) => {
-        if (!t) return [subjects[0] || 'Componente Curricular'];
-        if (Array.isArray(t.subjects) && t.subjects.length > 0) return t.subjects;
-        if (t.subject) return t.subject.split(',').map((s) => s.trim()).filter(Boolean);
-        return [subjects[0] || 'Componente Curricular'];
-      };
+      useEffect(() => {
+        if (teachers.length > 0 && !teachers.some((t) => t.id === selectedTeacherId)) {
+          setSelectedTeacherId(teachers[0].id);
+        }
+      }, [teachers]);
 
       const activeTeacher = teachers.find((t) => t.id === selectedTeacherId) || teachers[0];
-      const activeTeacherSubjects = getTeacherSubjects(activeTeacher);
 
+      // Sempre que mudar o professor selecionado, carrega AUTOMATICAMENTE todas as matérias e turmas dele
       useEffect(() => {
-        if (activeTeacherSubjects.length > 0 && !activeTeacherSubjects.includes(selectedSubject)) {
-          setSelectedSubject(activeTeacherSubjects[0]);
-        }
+        if (!activeTeacher) return;
+        const tSubjs = extractTeacherSubjects(activeTeacher, subjects);
+        const tClasses = extractTeacherClasses(activeTeacher);
+        const initialClasses =
+          tClasses.length > 0 ? tClasses : [classes[0]?.name || '6º Ano A'];
+
+        setSelectedTeacherSubjects(tSubjs);
+        setSelectedTeacherClasses(initialClasses);
       }, [selectedTeacherId, teachers]);
 
       const notify = (msg) => {
         setFeedback(msg);
-        setTimeout(() => setFeedback(null), 4000);
+        setTimeout(() => setFeedback(null), 5000);
       };
+
+      const targetEventLabel = formatEventLabel(
+        eventYear,
+        trimesterPreset === 'custom' ? (customEventName || 'Conselho Extraordinário') : trimesterPreset
+      );
+
+      const allEvents = Array.from(
+        new Set([targetEventLabel, ...reports.map((r) => normalizeEventLabel(r.trimester))])
+      ).sort((a, b) => b.localeCompare(a, 'pt-BR'));
+
+      const specificCombinationsCount =
+        releaseMode === 'specific'
+          ? selectedTeacherSubjects.length * selectedTeacherClasses.length
+          : 0;
 
       const handleRelease = async (e) => {
         e.preventDefault();
+        if (trimesterPreset === 'custom' && !customEventName.trim()) {
+          notify('Digite o nome do Evento de Conselho personalizado antes de liberar.');
+          return;
+        }
+
         const todayStr = new Date().toISOString().split('T')[0];
         const created = [];
 
         if (releaseMode === 'all') {
           teachers.forEach((teacher) => {
-            const targetClasses = teacher.classes?.length ? teacher.classes : [classes[0]?.name || '6º Ano A'];
-            const targetSubjects = getTeacherSubjects(teacher);
+            const tClasses = extractTeacherClasses(teacher);
+            const targetClasses = tClasses.length ? tClasses : [classes[0]?.name || '6º Ano A'];
+            const targetSubjects = extractTeacherSubjects(teacher, subjects);
             targetClasses.forEach((cls) => {
               targetSubjects.forEach((subj) => {
                 const exists = reports.some(
                   (r) =>
                     r.teacherId === teacher.id &&
                     sameClassGroup(r.classGroup, cls) &&
-                    r.component === subj &&
-                    r.trimester === trimester
+                    sameText(r.component, subj) &&
+                    normalizeEventLabel(r.trimester) === targetEventLabel
                 );
                 if (!exists) {
                   created.push({
@@ -963,7 +1057,7 @@ function SchoolLogo({ size = 'md' }) {
                     component: subj,
                     classGroup: cls.trim(),
                     date: todayStr,
-                    trimester,
+                    trimester: targetEventLabel,
                     answers: {},
                     dimensionRatings: {},
                     studentRatings: {},
@@ -978,61 +1072,94 @@ function SchoolLogo({ size = 'md' }) {
             });
           });
         } else {
-          const teacher = teachers.find((t) => t.id === selectedTeacherId);
-          if (teacher) {
-            const subj = selectedSubject || getTeacherSubjects(teacher)[0];
-            const exists = reports.some(
-              (r) =>
-                r.teacherId === teacher.id &&
-                sameClassGroup(r.classGroup, selectedClass) &&
-                r.component === subj &&
-                r.trimester === trimester
-            );
-            if (!exists) {
-              created.push({
-                id: `rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                schoolName: SCHOOL_NAME,
-                schoolSubtitle: SCHOOL_SUBTITLE,
-                title: REPORT_TITLE,
-                teacherId: teacher.id,
-                teacherName: teacher.name,
-                component: subj,
-                classGroup: selectedClass.trim(),
-                date: todayStr,
-                trimester,
-                answers: {},
-                dimensionRatings: {},
-                studentRatings: {},
-                status: 'pendente',
-                pedagogaSignature: { signed: false },
-                diretoraSignature: { signed: false },
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
-            }
+          if (!activeTeacher) return;
+          if (selectedTeacherSubjects.length === 0 || selectedTeacherClasses.length === 0) {
+            notify('Selecione pelo menos uma matéria e uma turma do professor antes de liberar.');
+            return;
           }
+
+          selectedTeacherClasses.forEach((cls) => {
+            selectedTeacherSubjects.forEach((subj) => {
+              const exists = reports.some(
+                (r) =>
+                  r.teacherId === activeTeacher.id &&
+                  sameClassGroup(r.classGroup, cls) &&
+                  sameText(r.component, subj) &&
+                  normalizeEventLabel(r.trimester) === targetEventLabel
+              );
+              if (!exists) {
+                created.push({
+                  id: `rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                  schoolName: SCHOOL_NAME,
+                  schoolSubtitle: SCHOOL_SUBTITLE,
+                  title: REPORT_TITLE,
+                  teacherId: activeTeacher.id,
+                  teacherName: activeTeacher.name,
+                  component: subj,
+                  classGroup: cls.trim(),
+                  date: todayStr,
+                  trimester: targetEventLabel,
+                  answers: {},
+                  dimensionRatings: {},
+                  studentRatings: {},
+                  status: 'pendente',
+                  pedagogaSignature: { signed: false },
+                  diretoraSignature: { signed: false },
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            });
+          });
         }
 
         if (created.length === 0) {
-          notify(`Todas as fichas selecionadas para o ${trimester} já foram liberadas anteriormente.`);
+          notify(`Todas as fichas selecionadas para o evento "${targetEventLabel}" já foram liberadas anteriormente.`);
         } else {
           await onReleaseReports(created);
-          notify(`${created.length} ficha(s) disponibilizada(s) para preenchimento no ${trimester}!`);
+          setFilterEvent(targetEventLabel);
+          notify(`${created.length} ficha(s) disponibilizada(s) para o evento "${targetEventLabel}"!`);
         }
       };
 
       const filteredReports = reports.filter((r) => {
+        if (filterEvent !== 'all' && normalizeEventLabel(r.trimester) !== filterEvent) return false;
         if (filterClass !== 'all' && !sameClassGroup(r.classGroup, filterClass)) return false;
         if (filterStatus !== 'all' && r.status !== filterStatus) return false;
         return true;
       });
 
+      const activeTeacherRegisteredSubjects = activeTeacher ? extractTeacherSubjects(activeTeacher, subjects) : [];
+      const activeTeacherRegisteredClasses = activeTeacher ? extractTeacherClasses(activeTeacher) : [];
+
+      const allSelectableSubjects = [];
+      [...subjects, ...activeTeacherRegisteredSubjects].forEach((s) => {
+        const clean = String(s || '').trim();
+        if (clean && !allSelectableSubjects.some((x) => sameText(x, clean))) {
+          allSelectableSubjects.push(clean);
+        }
+      });
+
+      const allSelectableClassNames = [];
+      [...classes.map((c) => c.name), ...activeTeacherRegisteredClasses].forEach((clsName) => {
+        const clean = String(clsName || '').trim();
+        if (clean && !allSelectableClassNames.some((x) => sameClassGroup(x, clean))) {
+          allSelectableClassNames.push(clean);
+        }
+      });
+      allSelectableClassNames.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
           <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs">
-            <h2 className="text-lg font-bold text-stone-900">Liberação e Gerenciamento de Fichas de Pré-Conselho</h2>
+            <div className="flex items-center gap-2">
+              <Icon name="calendar" className="w-5 h-5 text-amber-700" />
+              <h2 className="text-lg font-bold text-stone-900">
+                Criar Evento de Conselho e Liberar Fichas
+              </h2>
+            </div>
             <p className="text-xs text-stone-500 mt-1">
-              Disponibilize as fichas do trimestre ou reabra/exclua avaliações caso um professor precise refazer.
+              Cada liberação fica vinculada ao <strong>Ano Letivo e Evento</strong> escolhido (ex: <em>2026 • 1º Trimestre</em>, <em>2027 • 1º Trimestre</em>), mantendo os relatórios de cada ano totalmente separados e sem duplicidade.
             </p>
 
             {feedback && (
@@ -1042,75 +1169,246 @@ function SchoolLogo({ size = 'md' }) {
             )}
 
             <form onSubmit={handleRelease} className="mt-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Trimestre</label>
-                  <select
-                    value={trimester}
-                    onChange={(e) => setTrimester(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-semibold"
-                  >
-                    {TRIMESTERS.map((t) => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
+              <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Ano Letivo *
+                    </label>
+                    <select
+                      value={eventYear}
+                      onChange={(e) => setEventYear(Number(e.target.value))}
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-extrabold text-stone-900"
+                    >
+                      {SCHOOL_YEARS.map((yr) => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Período / Tipo de Evento *
+                    </label>
+                    <select
+                      value={trimesterPreset}
+                      onChange={(e) => setTrimesterPreset(e.target.value)}
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-semibold text-stone-900"
+                    >
+                      {TRIMESTERS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                      <option value="Conselho Final / Recuperação">Conselho Final / Recuperação</option>
+                      <option value="custom">+ Outro Evento Personalizado...</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Identificação do Evento Gerado
+                    </label>
+                    <div className="w-full bg-amber-100/80 border border-amber-300 rounded-xl px-3 py-2 text-xs font-extrabold text-amber-950 truncate">
+                      {targetEventLabel}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Modo de Liberação</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs cursor-pointer">
-                      <input type="radio" checked={releaseMode === 'all'} onChange={() => setReleaseMode('all')} />
-                      <span>Todos os Professores (Lote)</span>
+                {trimesterPreset === 'custom' && (
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Nome do Evento Personalizado *
                     </label>
-                    <label className="flex items-center gap-2 p-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs cursor-pointer">
-                      <input type="radio" checked={releaseMode === 'specific'} onChange={() => setReleaseMode('specific')} />
-                      <span>Professor / Turma Específico</span>
-                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Pré-Conselho Diagnóstico, 1º Bimestre, Conselho Extraordinário..."
+                      value={customEventName}
+                      onChange={(e) => setCustomEventName(e.target.value)}
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3.5 py-2 text-xs text-stone-900 focus:ring-2 focus:ring-amber-500 outline-none"
+                    />
                   </div>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Modo de Liberação</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                    releaseMode === 'all' ? 'bg-amber-50 border-amber-400 font-bold text-amber-950' : 'border-stone-200 bg-stone-50'
+                  }`}>
+                    <input type="radio" checked={releaseMode === 'all'} onChange={() => setReleaseMode('all')} />
+                    <span>Todos os Professores (Lote completo do Evento)</span>
+                  </label>
+                  <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                    releaseMode === 'specific' ? 'bg-amber-50 border-amber-400 font-bold text-amber-950' : 'border-stone-200 bg-stone-50'
+                  }`}>
+                    <input type="radio" checked={releaseMode === 'specific'} onChange={() => setReleaseMode('specific')} />
+                    <span>Apenas UM Professor (Escolher turmas e matérias)</span>
+                  </label>
                 </div>
               </div>
 
               {releaseMode === 'specific' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-stone-50 rounded-xl border border-stone-200">
+                <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Professor</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      1. Selecione o Professor *
+                    </label>
                     <select
                       value={selectedTeacherId}
                       onChange={(e) => setSelectedTeacherId(e.target.value)}
-                      className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-xs"
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900"
                     >
                       {teachers.map((t) => {
-                        const listSubj = getTeacherSubjects(t).join(', ');
+                        const listSubj = extractTeacherSubjects(t, subjects).join(', ');
+                        const listCls = extractTeacherClasses(t).join(', ');
                         return (
-                          <option key={t.id} value={t.id}>{t.name} ({listSubj})</option>
+                          <option key={t.id} value={t.id}>
+                            {t.name} — Matérias: [{listSubj}] • Turmas: [{listCls || 'Nenhuma'}]
+                          </option>
                         );
                       })}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Matéria / Componente</label>
-                    <select
-                      value={selectedSubject}
-                      onChange={(e) => setSelectedSubject(e.target.value)}
-                      className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-xs font-semibold"
-                    >
-                      {subjects.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white p-3.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-stone-800">
+                          2. Matérias ({selectedTeacherSubjects.length} marcada{selectedTeacherSubjects.length === 1 ? '' : 's'})
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeacherSubjects(activeTeacherRegisteredSubjects)}
+                            className="text-[11px] font-semibold text-amber-800 hover:underline cursor-pointer"
+                          >
+                            Todas do prof. ({activeTeacherRegisteredSubjects.length})
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeacherSubjects([])}
+                            className="text-[11px] font-semibold text-stone-500 hover:underline cursor-pointer"
+                          >
+                            Limpar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                        {allSelectableSubjects.map((subj) => {
+                          const isTeacherSubj = activeTeacherRegisteredSubjects.some((ts) =>
+                            sameText(ts, subj)
+                          );
+                          const isChecked = selectedTeacherSubjects.some((ss) =>
+                            sameText(ss, subj)
+                          );
+                          return (
+                            <label
+                              key={subj}
+                              className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold'
+                                  : isTeacherSubj
+                                  ? 'bg-emerald-50/40 border-emerald-200 text-stone-800'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setSelectedTeacherSubjects((prev) =>
+                                    prev.some((x) => sameText(x, subj))
+                                      ? prev.filter((x) => !sameText(x, subj))
+                                      : [...prev, subj]
+                                  )
+                                }
+                              />
+                              <span>{subj}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-stone-800">
+                          3. Turmas de {activeTeacher?.name} ({selectedTeacherClasses.length} marcada{selectedTeacherClasses.length === 1 ? '' : 's'})
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {activeTeacherRegisteredClasses.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTeacherClasses(activeTeacherRegisteredClasses)}
+                              className="text-[11px] font-semibold text-amber-800 hover:underline cursor-pointer"
+                            >
+                              Todas do prof. ({activeTeacherRegisteredClasses.length})
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeacherClasses([])}
+                            className="text-[11px] font-semibold text-stone-500 hover:underline cursor-pointer"
+                          >
+                            Limpar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                        {allSelectableClassNames.map((clsName) => {
+                          const belongsToTeacher = activeTeacherRegisteredClasses.some((tc) =>
+                            sameClassGroup(tc, clsName)
+                          );
+                          const isChecked = selectedTeacherClasses.some((sc) =>
+                            sameClassGroup(sc, clsName)
+                          );
+                          return (
+                            <label
+                              key={clsName}
+                              className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-amber-100 border-amber-500 text-amber-950 font-bold'
+                                  : belongsToTeacher
+                                  ? 'bg-amber-50/40 border-amber-200 text-stone-800'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setSelectedTeacherClasses((prev) =>
+                                    prev.some((x) => sameClassGroup(x, clsName))
+                                      ? prev.filter((x) => !sameClassGroup(x, clsName))
+                                      : [...prev, clsName]
+                                  )
+                                }
+                              />
+                              <span>{clsName}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Turma</label>
-                    <select
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-xs"
-                    >
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
+
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-950">
+                    {specificCombinationsCount > 0 ? (
+                      <span>
+                        <strong>Resumo do envio:</strong> Serão liberadas{' '}
+                        <strong className="underline">{specificCombinationsCount} ficha(s)</strong> para{' '}
+                        <strong>{activeTeacher?.name}</strong> — Matérias:{' '}
+                        <strong>{selectedTeacherSubjects.join(', ')}</strong> • Turmas:{' '}
+                        <strong>{selectedTeacherClasses.join(', ')}</strong>.
+                      </span>
+                    ) : (
+                      <span className="text-red-700 font-semibold">
+                        Marque pelo menos uma matéria e uma turma acima para liberar.
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -1121,7 +1419,11 @@ function SchoolLogo({ size = 'md' }) {
                   className="flex items-center gap-2 px-5 py-2.5 bg-amber-800 hover:bg-amber-900 text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   <Icon name="send" className="w-4 h-4" />
-                  <span>Disponibilizar Fichas</span>
+                  <span>
+                    {releaseMode === 'specific'
+                      ? `Liberar ${specificCombinationsCount} Ficha(s) para ${activeTeacher?.name || 'Professor'}`
+                      : `Liberar Fichas para "${targetEventLabel}"`}
+                  </span>
                 </button>
               </div>
             </form>
@@ -1130,9 +1432,19 @@ function SchoolLogo({ size = 'md' }) {
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs">
             <div className="p-4 bg-stone-50 border-b border-stone-200 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-bold text-stone-900">
-                Fichas e Avaliações ({filteredReports.length})
+                Fichas e Avaliações por Evento ({filteredReports.length})
               </h3>
               <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={filterEvent}
+                  onChange={(e) => setFilterEvent(e.target.value)}
+                  className="bg-amber-50 border border-amber-300 text-amber-950 rounded-lg px-2.5 py-1 text-xs font-bold"
+                >
+                  <option value="all">Todos os Eventos / Anos</option>
+                  {allEvents.map((ev) => (
+                    <option key={ev} value={ev}>{ev}</option>
+                  ))}
+                </select>
                 <select
                   value={filterClass}
                   onChange={(e) => setFilterClass(e.target.value)}
@@ -1163,62 +1475,66 @@ function SchoolLogo({ size = 'md' }) {
               </div>
             ) : (
               <div className="divide-y divide-stone-100">
-                {filteredReports.map((r) => (
-                  <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/60">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-xs text-stone-900">{r.classGroup}</span>
-                        <span className="text-stone-300">•</span>
-                        <span className="text-xs font-semibold text-stone-700">{r.component}</span>
-                        <span className="text-stone-300">•</span>
-                        <span className="text-xs font-semibold text-amber-800">{r.trimester}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                          r.status === 'visto' ? 'bg-purple-100 text-purple-800' :
-                          r.status === 'enviado' ? 'bg-emerald-100 text-emerald-800' :
-                          r.status === 'rascunho' ? 'bg-blue-100 text-blue-800' :
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {r.status}
-                        </span>
+                {filteredReports.map((r) => {
+                  const eventDisplay = normalizeEventLabel(r.trimester);
+                  return (
+                    <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-stone-50/60">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-950 border border-amber-300 text-[11px] font-extrabold">
+                            {eventDisplay}
+                          </span>
+                          <span className="font-bold text-xs text-stone-900">{r.classGroup}</span>
+                          <span className="text-stone-300">•</span>
+                          <span className="text-xs font-semibold text-stone-700">{r.component}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            r.status === 'visto' ? 'bg-purple-100 text-purple-800' :
+                            r.status === 'enviado' ? 'bg-emerald-100 text-emerald-800' :
+                            r.status === 'rascunho' ? 'bg-blue-100 text-blue-800' :
+                            'bg-amber-100 text-amber-800'
+                          }`}>
+                            {r.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-stone-500 mt-1">Professor(a): <strong>{r.teacherName}</strong></p>
                       </div>
-                      <p className="text-xs text-stone-500 mt-0.5">Professor(a): <strong>{r.teacherName}</strong></p>
-                    </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {r.status !== 'pendente' && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {r.status !== 'pendente' && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenReport(r)}
+                            className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg cursor-pointer"
+                          >
+                            Visualizar / Visto
+                          </button>
+                        )}
+
+                        {(r.status === 'enviado' || r.status === 'visto') && (
+                          <button
+                            type="button"
+                            onClick={() => setReportToReopen(r)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold rounded-lg cursor-pointer"
+                            title="Devolve a ficha para o professor editar e enviar novamente"
+                          >
+                            <Icon name="refresh" className="w-3.5 h-3.5" />
+                            <span>Reabrir p/ Refazer</span>
+                          </button>
+                        )}
+
                         <button
                           type="button"
-                          onClick={() => onOpenReport(r)}
-                          className="px-3 py-1.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded-lg cursor-pointer"
+                          onClick={() => setReportToDelete(r)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold rounded-lg cursor-pointer"
+                          title="Excluir esta avaliação definitivamente"
                         >
-                          Visualizar / Visto
+                          <Icon name="trash" className="w-3.5 h-3.5" />
+                          <span>Excluir</span>
                         </button>
-                      )}
-
-                      {(r.status === 'enviado' || r.status === 'visto') && (
-                        <button
-                          type="button"
-                          onClick={() => setReportToReopen(r)}
-                          className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-semibold rounded-lg cursor-pointer"
-                          title="Devolve a ficha para o professor editar e enviar novamente"
-                        >
-                          <Icon name="refresh" className="w-3.5 h-3.5" />
-                          <span>Reabrir p/ Refazer</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setReportToDelete(r)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold rounded-lg cursor-pointer"
-                        title="Excluir esta avaliação definitivamente"
-                      >
-                        <Icon name="trash" className="w-3.5 h-3.5" />
-                        <span>Excluir</span>
-                      </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1228,14 +1544,14 @@ function SchoolLogo({ size = 'md' }) {
             title="Excluir Avaliação"
             message={
               reportToDelete
-                ? `Tem certeza que deseja excluir definitivamente a ficha de ${reportToDelete.component} (${reportToDelete.classGroup} — ${reportToDelete.trimester}) do(a) Prof. ${reportToDelete.teacherName}? Depois de excluída, você poderá liberá-la novamente.`
+                ? `Tem certeza que deseja excluir definitivamente a ficha de ${reportToDelete.component} (${reportToDelete.classGroup} — ${normalizeEventLabel(reportToDelete.trimester)}) do(a) Prof. ${reportToDelete.teacherName}?`
                 : ''
             }
             confirmText="Sim, Excluir Avaliação"
             onConfirm={async () => {
               if (reportToDelete) {
                 await onDeleteReport(reportToDelete.id);
-                notify('Avaliação excluída com sucesso! Caso precise, libere novamente acima.');
+                notify('Avaliação excluída com sucesso!');
                 setReportToDelete(null);
               }
             }}
@@ -1247,7 +1563,7 @@ function SchoolLogo({ size = 'md' }) {
             title="Reabrir Ficha para o Professor Refazer"
             message={
               reportToReopen
-                ? `Deseja devolver a ficha de ${reportToReopen.component} (${reportToReopen.classGroup}) para o(a) Prof. ${reportToReopen.teacherName}? O status voltará para "Pendente" e o professor poderá editar e reenviar.`
+                ? `Deseja devolver a ficha de ${reportToReopen.component} (${reportToReopen.classGroup} — ${normalizeEventLabel(reportToReopen.trimester)}) para o(a) Prof. ${reportToReopen.teacherName}?`
                 : ''
             }
             confirmText="Sim, Reabrir Ficha"
@@ -1273,6 +1589,8 @@ function SchoolLogo({ size = 'md' }) {
       const [dimensionRatings, setDimensionRatings] = useState(report?.dimensionRatings || {});
       const [studentRatings, setStudentRatings] = useState(report?.studentRatings || {});
       const [errors, setErrors] = useState([]);
+
+      const eventDisplay = normalizeEventLabel(report.trimester);
 
       const classStudents = students
         .filter((s) => sameClassGroup(s.classGroup, report.classGroup))
@@ -1369,8 +1687,8 @@ function SchoolLogo({ size = 'md' }) {
                   <input readOnly value={report.classGroup} className="w-full bg-stone-100 border border-stone-300 rounded-lg px-2.5 py-1.5 font-bold" />
                 </div>
                 <div>
-                  <label className="font-bold text-stone-600 block mb-1">Trimestre:</label>
-                  <input readOnly value={report.trimester} className="w-full bg-stone-100 border border-stone-300 rounded-lg px-2.5 py-1.5 font-bold" />
+                  <label className="font-bold text-stone-600 block mb-1">Evento / Trimestre:</label>
+                  <input readOnly value={eventDisplay} className="w-full bg-amber-50 border border-amber-300 text-amber-950 rounded-lg px-2.5 py-1.5 font-extrabold" />
                 </div>
               </div>
             </div>
@@ -1555,21 +1873,26 @@ function SchoolLogo({ size = 'md' }) {
     function ReportViewModal({ report, questions, sections, students, currentUser, onClose, onSignReport }) {
       const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
-      const classStudents = students.filter((s) => sameClassGroup(s.classGroup, report.classGroup));
+      const eventDisplay = normalizeEventLabel(report.trimester);
+
+      const ratedIds = report.studentRatings ? Object.keys(report.studentRatings) : [];
+      const currentClassStudents = students.filter((s) => sameClassGroup(s.classGroup, report.classGroup));
 
       const goodStudents = [];
       const badStudents = [];
-      const transferredStudents = classStudents.filter((s) => isStudentTransferred(s));
+      const transferredStudents = currentClassStudents.filter((s) => isStudentTransferred(s));
 
-      if (classStudents.length > 0 && report.studentRatings) {
-        classStudents.forEach((s) => {
-          if (isStudentTransferred(s)) return;
-          const sr = report.studentRatings[s.id];
+      if (ratedIds.length > 0) {
+        ratedIds.forEach((stdId) => {
+          const sr = report.studentRatings[stdId];
           if (!sr) return;
+          const foundStd = students.find((s) => s.id === stdId);
+          if (foundStd && isStudentTransferred(foundStd)) return;
+          const studentObj = foundStd || { id: stdId, name: sr.studentName || 'Estudante', rollNumber: sr.rollNumber || '' };
           if (sr.rating === 'bom' || sr.rating === 'otimo') {
-            goodStudents.push({ student: s, ...sr });
+            goodStudents.push({ student: studentObj, ...sr });
           } else {
-            badStudents.push({ student: s, ...sr });
+            badStudents.push({ student: studentObj, ...sr });
           }
         });
       }
@@ -1589,7 +1912,7 @@ function SchoolLogo({ size = 'md' }) {
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-zA-Z0-9_-]+/g, '_')
             .replace(/^_+|_+$/g, '');
-        return `Pre_Conselho_${clean(report.classGroup)}_${clean(report.component)}_${clean(report.teacherName)}_${clean(report.trimester)}.pdf`;
+        return `Pre_Conselho_${clean(eventDisplay)}_${clean(report.classGroup)}_${clean(report.component)}_${clean(report.teacherName)}.pdf`;
       };
 
       const handlePrintReport = () => {
@@ -1639,7 +1962,7 @@ function SchoolLogo({ size = 'md' }) {
           <div id="report-modal-card" className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-4">
             <div className="no-print bg-stone-900 text-white px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold text-amber-400">
-                Documento Oficial — {report.classGroup} ({report.component} • {report.trimester})
+                Documento Oficial — {report.classGroup} ({report.component} • {eventDisplay})
               </span>
               <div className="flex flex-wrap items-center gap-2">
                 {currentUser.role === 'diretora' && !report.diretoraSignature?.signed && (
@@ -1685,7 +2008,7 @@ function SchoolLogo({ size = 'md' }) {
 
                 <div className="mt-4 pt-4 border-t border-stone-300 grid grid-cols-2 gap-3 text-left text-xs">
                   <div><strong>Componente:</strong> {report.component}</div>
-                  <div><strong>Trimestre / Data:</strong> {report.trimester} ({report.date})</div>
+                  <div><strong>Evento / Data:</strong> {eventDisplay} ({report.date})</div>
                   <div><strong>Professor(a):</strong> {report.teacherName}</div>
                   <div><strong>Turma:</strong> {report.classGroup}</div>
                 </div>
@@ -1847,11 +2170,20 @@ function SchoolLogo({ size = 'md' }) {
     }
 
     // =========================================================================
-    // 11. PAINEL GRÁFICO CONSOLIDADO POR TURMA (6 CRITÉRIOS DA TURMA TODA)
+    // 11. PAINEL GRÁFICO CONSOLIDADO POR TURMA E EVENTO LETIVO
     // =========================================================================
     function ClassChartsDashboard({ classes, reports }) {
-      const [selectedClass, setSelectedClass] = useState(classes[0]?.name || '8º Ano A');
-      const [selectedTrimester, setSelectedTrimester] = useState('1º Trimestre');
+      const availableEvents = Array.from(
+        new Set([
+          `${CURRENT_YEAR} • 1º Trimestre`,
+          `${CURRENT_YEAR} • 2º Trimestre`,
+          `${CURRENT_YEAR} • 3º Trimestre`,
+          ...reports.map((r) => normalizeEventLabel(r.trimester)),
+        ])
+      ).sort((a, b) => b.localeCompare(a, 'pt-BR'));
+
+      const [selectedClass, setSelectedClass] = useState(classes[0]?.name || '6º Ano A');
+      const [selectedEvent, setSelectedEvent] = useState(availableEvents[0] || `${CURRENT_YEAR} • 1º Trimestre`);
 
       useEffect(() => {
         if (classes.length > 0 && !classes.some((c) => sameClassGroup(c.name, selectedClass))) {
@@ -1859,10 +2191,16 @@ function SchoolLogo({ size = 'md' }) {
         }
       }, [classes]);
 
+      useEffect(() => {
+        if (availableEvents.length > 0 && !availableEvents.includes(selectedEvent)) {
+          setSelectedEvent(availableEvents[0]);
+        }
+      }, [reports]);
+
       const classReports = reports.filter(
         (r) =>
           sameClassGroup(r.classGroup, selectedClass) &&
-          r.trimester === selectedTrimester &&
+          normalizeEventLabel(r.trimester) === selectedEvent &&
           r.dimensionRatings &&
           Object.keys(r.dimensionRatings).length > 0
       );
@@ -1937,15 +2275,15 @@ function SchoolLogo({ size = 'md' }) {
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Trimestre de Referência
+                  Ano Letivo / Evento de Referência
                 </label>
                 <select
-                  value={selectedTrimester}
-                  onChange={(e) => setSelectedTrimester(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2 text-xs font-bold text-stone-900"
+                  value={selectedEvent}
+                  onChange={(e) => setSelectedEvent(e.target.value)}
+                  className="w-full bg-amber-50 border border-amber-300 rounded-xl px-3.5 py-2 text-xs font-extrabold text-amber-950"
                 >
-                  {TRIMESTERS.map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                  {availableEvents.map((ev) => (
+                    <option key={ev} value={ev}>{ev}</option>
                   ))}
                 </select>
               </div>
@@ -1968,7 +2306,7 @@ function SchoolLogo({ size = 'md' }) {
                   const clean = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '_');
                   window.html2pdf().set({
                     margin: [10, 10, 12, 10],
-                    filename: `Grafico_Consolidado_${clean(selectedClass)}_${clean(selectedTrimester)}.pdf`,
+                    filename: `Grafico_Consolidado_${clean(selectedEvent)}_${clean(selectedClass)}.pdf`,
                     image: { type: 'jpeg', quality: 0.98 },
                     html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
                     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
@@ -1991,7 +2329,7 @@ function SchoolLogo({ size = 'md' }) {
                     {SCHOOL_NAME}
                   </span>
                   <h2 className="text-lg sm:text-xl font-extrabold text-stone-900 font-serif mt-0.5">
-                    Gráfico Consolidado da Turma: {selectedClass} — {selectedTrimester}
+                    Gráfico Consolidado da Turma: {selectedClass} — {selectedEvent}
                   </h2>
                   <p className="text-xs text-stone-500 mt-1">
                     Síntese percentual dos <strong>6 critérios pedagógicos da turma</strong> somando todas as fichas preenchidas pelos professores ({classReports.length}{' '}
@@ -2006,7 +2344,7 @@ function SchoolLogo({ size = 'md' }) {
                 </p>
                 {classReports.length === 0 ? (
                   <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                    Nenhuma ficha com avaliação conceitual da turma foi preenchida ainda para <strong>{selectedClass}</strong> no <strong>{selectedTrimester}</strong>.
+                    Nenhuma ficha com avaliação conceitual da turma foi preenchida ainda para <strong>{selectedClass}</strong> no evento <strong>{selectedEvent}</strong>.
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5">
@@ -2127,7 +2465,7 @@ function SchoolLogo({ size = 'md' }) {
             {classReports.length > 0 && (
               <div className="bg-white p-6 rounded-2xl border border-stone-200 shadow-xs overflow-x-auto">
                 <h3 className="text-sm font-extrabold uppercase font-serif text-stone-900 mb-3">
-                  Detalhamento por Professor e Disciplina ({selectedClass})
+                  Detalhamento por Professor e Disciplina ({selectedClass} — {selectedEvent})
                 </h3>
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -2169,7 +2507,7 @@ function SchoolLogo({ size = 'md' }) {
     }
 
     // =========================================================================
-    // 12. CADASTRO E EDIÇÃO DE PROFESSORES, MATÉRIAS, TURMAS E ALUNOS
+    // 12. CADASTRO E IMPORTAÇÃO EXCEL DE PROFESSORES, MATÉRIAS, TURMAS E ALUNOS
     // =========================================================================
     function SchoolEntitiesManager({
       tab,
@@ -2181,6 +2519,7 @@ function SchoolLogo({ size = 'md' }) {
       onDeleteSubject,
       onAddTeacher,
       onUpdateTeacher,
+      onUpsertMultipleTeachers,
       onDeleteTeacher,
       onAddClass,
       onDeleteClass,
@@ -2193,6 +2532,7 @@ function SchoolLogo({ size = 'md' }) {
       const [name, setName] = useState('');
       const [extra1, setExtra1] = useState(subjects[0] || '');
       const [extra2, setExtra2] = useState(classes[0]?.name || '6º Ano A');
+      const [classYear, setClassYear] = useState(CURRENT_YEAR);
       const [teacherPassword, setTeacherPassword] = useState('123');
       const [selectedSubjects, setSelectedSubjects] = useState(subjects[0] ? [subjects[0]] : []);
       const [selectedClasses, setSelectedClasses] = useState([classes[0]?.name || '6º Ano A']);
@@ -2206,17 +2546,12 @@ function SchoolLogo({ size = 'md' }) {
 
       const formRef = useRef(null);
 
-      const getTeacherSubjectsList = (t) => {
-        if (Array.isArray(t.subjects) && t.subjects.length > 0) return t.subjects;
-        if (t.subject) return t.subject.split(',').map((s) => s.trim()).filter(Boolean);
-        return [];
-      };
-
       useEffect(() => {
         setEditingTeacherId(null);
         setEditingStudentId(null);
         setName('');
         setTeacherPassword('123');
+        setClassYear(CURRENT_YEAR);
         setExtra1(tab === 'teachers' ? (subjects[0] || '') : '');
         const defaultCls = classes[0]?.name || '6º Ano A';
         setExtra2(tab === 'classes' ? 'Matutino' : defaultCls);
@@ -2229,16 +2564,16 @@ function SchoolLogo({ size = 'md' }) {
 
       const notify = (msg) => {
         setFeedback(msg);
-        setTimeout(() => setFeedback(null), 3500);
+        setTimeout(() => setFeedback(null), 5000);
       };
 
       const startEditTeacher = (teacher) => {
         setEditingTeacherId(teacher.id);
         setName(teacher.name);
-        const list = getTeacherSubjectsList(teacher);
-        setSelectedSubjects(list.length > 0 ? list : (subjects[0] ? [subjects[0]] : []));
+        const list = extractTeacherSubjects(teacher, subjects);
+        setSelectedSubjects(list);
         setTeacherPassword(teacher.password || '123');
-        setSelectedClasses(Array.isArray(teacher.classes) ? [...teacher.classes] : []);
+        setSelectedClasses(extractTeacherClasses(teacher));
         setTimeout(() => {
           formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
@@ -2302,7 +2637,7 @@ function SchoolLogo({ size = 'md' }) {
 
         if (tab === 'subjects') {
           const cleanSubj = name.trim();
-          if (subjects.some((s) => s.toLowerCase() === cleanSubj.toLowerCase())) {
+          if (subjects.some((s) => sameText(s, cleanSubj))) {
             notify(`A matéria "${cleanSubj}" já está cadastrada!`);
             return;
           }
@@ -2325,7 +2660,7 @@ function SchoolLogo({ size = 'md' }) {
                 password: teacherPassword.trim() || '123',
                 classes: selectedClasses,
               });
-              notify(`Dados de ${name.trim()} atualizados (matérias, senha e turmas salvas)!`);
+              notify(`Dados de ${name.trim()} atualizados (${finalSubjects.length} matéria(s), senha e turmas salvas)!`);
             }
             cancelEditTeacher();
           } else {
@@ -2350,10 +2685,10 @@ function SchoolLogo({ size = 'md' }) {
             name: name.trim(),
             grade: extra1 || name.trim(),
             shift: extra2 || 'Matutino',
-            year: 2026,
+            year: Number(classYear) || CURRENT_YEAR,
             room: '',
           });
-          notify(`Turma "${name.trim()}" cadastrada!`);
+          notify(`Turma "${name.trim()}" (${classYear}) cadastrada!`);
           setName('');
         } else if (tab === 'students') {
           const cleanNotes = studentNotes.trim();
@@ -2401,6 +2736,139 @@ function SchoolLogo({ size = 'md' }) {
         }
       };
 
+      // =======================================================================
+      // DOWNLOAD E IMPORTAÇÃO EXCEL DE PROFESSORES
+      // =======================================================================
+      const handleDownloadTeacherTemplate = () => {
+        if (!window.XLSX) {
+          notify('Biblioteca Excel ainda carregando, aguarde um instante.');
+          return;
+        }
+        const sampleData = [
+          ['Nome', 'Senha', 'Matérias', 'Turmas'],
+          ['Luis Fernando', '123', 'Língua Inglesa, Projeto de Vida', '6º Ano A, 7º Ano A, 8º Ano A, 9º Ano A'],
+          ['Robson Serpe', '123', 'Matemática, Física', '8º Ano A, 9º Ano A'],
+          ['Maria Clara Mendes', '123', 'Língua Portuguesa, Arte', '6º Ano A, 7º Ano A'],
+        ];
+        const ws = window.XLSX.utils.aoa_to_sheet(sampleData);
+        ws['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 36 }, { wch: 38 }];
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Professores');
+        window.XLSX.writeFile(wb, 'Modelo_Importacao_Professores.xlsx');
+      };
+
+      const handleTeacherExcelImport = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!window.XLSX) {
+          notify('Erro: biblioteca de leitura Excel não carregada. Verifique a internet.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const wb = window.XLSX.read(data, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+            let startIdx = 0;
+            if (rows.length > 0) {
+              const firstRowText = rows[0].map((c) => String(c || '').trim().toLowerCase()).join(' ');
+              if (
+                firstRowText.includes('nome') ||
+                firstRowText.includes('professor') ||
+                firstRowText.includes('materia') ||
+                firstRowText.includes('matéria') ||
+                firstRowText.includes('turma')
+              ) {
+                startIdx = 1;
+              }
+            }
+
+            // Mapa para consolidar linhas repetidas do mesmo professor (ex: linha 1 = 6A Matemática, linha 2 = 9A Física)
+            const groupedMap = new Map();
+
+            for (let i = startIdx; i < rows.length; i++) {
+              const row = rows[i] || [];
+              const rawName = String(row[0] ?? '').trim();
+              if (!rawName) continue;
+
+              const rawPass = String(row[1] ?? '').trim() || '123';
+              const rawSubjectsCol = String(row[2] ?? '').trim();
+              const rawClassesCol = String(row[3] ?? '').trim();
+
+              const key = rawName.toLowerCase();
+              if (!groupedMap.has(key)) {
+                groupedMap.set(key, {
+                  name: rawName,
+                  password: rawPass,
+                  subjects: [],
+                  classes: [],
+                });
+              }
+              const entry = groupedMap.get(key);
+              if (rawPass && rawPass !== '123') entry.password = rawPass;
+
+              // Suporta formato "6º Ano A: Matemática; 9º Ano A: Física" OU lista separada por vírgula/ponto-e-vírgula
+              const extractItems = (text) =>
+                text
+                  .split(/[,;|]+/)
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+
+              extractItems(rawSubjectsCol).forEach((item) => {
+                if (item.includes(':')) {
+                  const [clsPart, subjPart] = item.split(':').map((p) => p.trim());
+                  if (clsPart && !entry.classes.some((x) => sameClassGroup(x, clsPart))) {
+                    entry.classes.push(clsPart);
+                  }
+                  if (subjPart && !entry.subjects.some((x) => sameText(x, subjPart))) {
+                    entry.subjects.push(subjPart);
+                  }
+                } else if (!entry.subjects.some((x) => sameText(x, item))) {
+                  entry.subjects.push(item);
+                }
+              });
+
+              extractItems(rawClassesCol).forEach((item) => {
+                if (item.includes(':')) {
+                  const [clsPart, subjPart] = item.split(':').map((p) => p.trim());
+                  if (clsPart && !entry.classes.some((x) => sameClassGroup(x, clsPart))) {
+                    entry.classes.push(clsPart);
+                  }
+                  if (subjPart && !entry.subjects.some((x) => sameText(x, subjPart))) {
+                    entry.subjects.push(subjPart);
+                  }
+                } else if (!entry.classes.some((x) => sameClassGroup(x, item))) {
+                  entry.classes.push(item);
+                }
+              });
+            }
+
+            const parsedList = Array.from(groupedMap.values());
+            if (parsedList.length === 0) {
+              notify('Nenhum professor válido encontrado na planilha. Colunas esperadas: Nome | Senha | Matérias | Turmas.');
+              return;
+            }
+
+            const result = await onUpsertMultipleTeachers(parsedList);
+            notify(
+              `Importação concluída! ${result.createdCount} professor(es) novo(s) cadastrado(s) e ${result.updatedCount} atualizado(s).`
+            );
+          } catch (err) {
+            console.error('Erro ao ler planilha de professores:', err);
+            notify('Não foi possível ler o arquivo. Salve como .xlsx ou .csv e tente novamente.');
+          } finally {
+            e.target.value = '';
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      };
+
+      // =======================================================================
+      // DOWNLOAD E IMPORTAÇÃO EXCEL DE ALUNOS
+      // =======================================================================
       const handleDownloadTemplate = () => {
         if (!window.XLSX) {
           notify('Biblioteca Excel ainda carregando, aguarde um instante.');
@@ -2506,6 +2974,11 @@ function SchoolLogo({ size = 'md' }) {
 
       const isEditingAny = Boolean(editingTeacherId || editingStudentId);
 
+      const allTeacherFormSubjects = Array.from(new Set([...subjects, ...selectedSubjects]));
+      const allTeacherFormClasses = Array.from(
+        new Set([...classes.map((c) => c.name), ...selectedClasses])
+      ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
           {feedback && (
@@ -2528,7 +3001,7 @@ function SchoolLogo({ size = 'md' }) {
                   : tab === 'teachers'
                   ? editingTeacherId
                     ? 'Editar Professor (Matérias, Senha e Turmas)'
-                    : 'Cadastro de Professores'
+                    : 'Cadastro e Importação de Professores (Individual ou Excel)'
                   : tab === 'classes'
                   ? 'Cadastro de Turmas'
                   : editingStudentId
@@ -2557,7 +3030,7 @@ function SchoolLogo({ size = 'md' }) {
 
             <form
               onSubmit={handleCreateOrUpdate}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end"
+              className={`grid grid-cols-1 ${tab === 'classes' ? 'sm:grid-cols-4' : 'sm:grid-cols-3'} gap-3 items-end`}
             >
               <div className={tab === 'subjects' ? 'sm:col-span-2' : ''}>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
@@ -2593,19 +3066,33 @@ function SchoolLogo({ size = 'md' }) {
               )}
 
               {tab === 'classes' && (
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">Turno</label>
-                  <select
-                    value={extra2}
-                    onChange={(e) => setExtra2(e.target.value)}
-                    className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs"
-                  >
-                    <option value="Matutino">Matutino</option>
-                    <option value="Vespertino">Vespertino</option>
-                    <option value="Noturno">Noturno</option>
-                    <option value="Integral">Integral</option>
-                  </select>
-                </div>
+                <>
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">Turno</label>
+                    <select
+                      value={extra2}
+                      onChange={(e) => setExtra2(e.target.value)}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs"
+                    >
+                      <option value="Matutino">Matutino</option>
+                      <option value="Vespertino">Vespertino</option>
+                      <option value="Noturno">Noturno</option>
+                      <option value="Integral">Integral</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">Ano Letivo</label>
+                    <select
+                      value={classYear}
+                      onChange={(e) => setClassYear(Number(e.target.value))}
+                      className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold"
+                    >
+                      {SCHOOL_YEARS.map((yr) => (
+                        <option key={yr} value={yr}>{yr}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
 
               {tab === 'students' && (
@@ -2651,14 +3138,14 @@ function SchoolLogo({ size = 'md' }) {
             </form>
 
             {tab === 'teachers' && (
-              <div className="mt-4 pt-3 border-t border-stone-100 space-y-3">
+              <div className="mt-4 pt-3 border-t border-stone-100 space-y-4">
                 <div>
                   <p className="text-xs font-bold text-stone-700 mb-1.5">
                     Matérias / Disciplinas ministradas pelo professor (selecione uma ou mais):
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {subjects.map((subj) => {
-                      const isChecked = selectedSubjects.includes(subj);
+                    {allTeacherFormSubjects.map((subj) => {
+                      const isChecked = selectedSubjects.some((x) => sameText(x, subj));
                       return (
                         <label
                           key={subj}
@@ -2673,7 +3160,9 @@ function SchoolLogo({ size = 'md' }) {
                             checked={isChecked}
                             onChange={() =>
                               setSelectedSubjects((prev) =>
-                                prev.includes(subj) ? prev.filter((x) => x !== subj) : [...prev, subj]
+                                prev.some((x) => sameText(x, subj))
+                                  ? prev.filter((x) => !sameText(x, subj))
+                                  : [...prev, subj]
                               )
                             }
                           />
@@ -2687,11 +3176,11 @@ function SchoolLogo({ size = 'md' }) {
                 <div>
                   <p className="text-xs font-bold text-stone-700 mb-1.5">Turmas do docente:</p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {classes.map((c) => {
-                      const isChecked = selectedClasses.includes(c.name);
+                    {allTeacherFormClasses.map((clsName) => {
+                      const isChecked = selectedClasses.some((x) => sameClassGroup(x, clsName));
                       return (
                         <label
-                          key={c.id}
+                          key={clsName}
                           className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
                             isChecked
                               ? 'bg-amber-50 border-amber-400 text-amber-900 font-semibold'
@@ -2703,16 +3192,49 @@ function SchoolLogo({ size = 'md' }) {
                             checked={isChecked}
                             onChange={() =>
                               setSelectedClasses((prev) =>
-                                prev.includes(c.name) ? prev.filter((x) => x !== c.name) : [...prev, c.name]
+                                prev.some((x) => sameClassGroup(x, clsName))
+                                  ? prev.filter((x) => !sameClassGroup(x, clsName))
+                                  : [...prev, clsName]
                               )
                             }
                           />
-                          <span>{c.name}</span>
+                          <span>{clsName}</span>
                         </label>
                       );
                     })}
                   </div>
                 </div>
+
+                {!editingTeacherId && (
+                  <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-stone-800">
+                        Importar Todos os Professores via Excel (.xlsx, .xls ou .csv)
+                      </p>
+                      <p className="text-[11px] text-stone-600 mt-0.5">
+                        Colunas: <strong>Nome</strong> | <strong>Senha</strong> | <strong>Matérias</strong> | <strong>Turmas</strong>. Separe múltiplas matérias ou turmas por vírgula (ex: <em>Matemática, Física</em>). Se o professor já existir, será atualizado automaticamente!
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTeacherTemplate}
+                        className="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        Baixar Modelo Excel
+                      </button>
+                      <label className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer">
+                        Importar Planilha de Professores
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleTeacherExcelImport}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2803,7 +3325,9 @@ function SchoolLogo({ size = 'md' }) {
 
           <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100 overflow-hidden shadow-xs">
             {tab === 'subjects' && subjects.map((subj) => {
-              const profCount = teachers.filter((t) => getTeacherSubjectsList(t).includes(subj)).length;
+              const profCount = teachers.filter((t) =>
+                extractTeacherSubjects(t, subjects).some((ts) => sameText(ts, subj))
+              ).length;
               return (
                 <div key={subj} className="p-4 flex items-center justify-between text-xs hover:bg-stone-50/70">
                   <div>
@@ -2825,7 +3349,8 @@ function SchoolLogo({ size = 'md' }) {
             })}
 
             {tab === 'teachers' && teachers.map((t) => {
-              const subjList = getTeacherSubjectsList(t);
+              const subjList = extractTeacherSubjects(t, []);
+              const clsList = extractTeacherClasses(t);
               return (
                 <div key={t.id} className="p-4 flex items-center justify-between gap-3 text-xs hover:bg-stone-50/70">
                   <div>
@@ -2843,7 +3368,7 @@ function SchoolLogo({ size = 'md' }) {
                       )}
                     </div>
                     <p className="text-stone-500 mt-1">
-                      Turmas: <strong>{(t.classes || []).join(', ') || 'Nenhuma'}</strong> • Senha: <strong>{t.password}</strong>
+                      Turmas: <strong>{clsList.join(', ') || 'Nenhuma'}</strong> • Senha: <strong>{t.password}</strong>
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -2872,8 +3397,13 @@ function SchoolLogo({ size = 'md' }) {
             {tab === 'classes' && classes.map((c) => (
               <div key={c.id} className="p-4 flex items-center justify-between text-xs">
                 <div>
-                  <p className="font-bold text-stone-900">{c.name}</p>
-                  <p className="text-stone-500">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-stone-900">{c.name}</p>
+                    <span className="px-2 py-0.5 rounded bg-stone-100 border border-stone-200 text-[10px] font-bold text-stone-700">
+                      Ano: {c.year || CURRENT_YEAR}
+                    </span>
+                  </div>
+                  <p className="text-stone-500 mt-0.5">
                     Turno: {c.shift} • Alunos cadastrados: <strong>{students.filter((s) => sameClassGroup(s.classGroup, c.name)).length}</strong>
                   </p>
                 </div>
@@ -3003,7 +3533,7 @@ function SchoolLogo({ size = 'md' }) {
           <ConfirmDialog
             isOpen={!!classStudentsToClear}
             title="Limpar Lista de Alunos da Turma"
-            message={`Deseja remover apenas os alunos cadastrados na turma "${classStudentsToClear}" para importar uma nova planilha? As demais turmas não serão afetadas.`}
+            message={`Deseja remover apenas os alunos cadastrados na turma "${classStudentsToClear}" para importar uma nova planilha? As demais turmas e os relatórios já salvos não serão afetados.`}
             confirmText="Sim, Limpar Turma"
             onConfirm={async () => {
               if (classStudentsToClear) {
@@ -3044,6 +3574,7 @@ function SchoolLogo({ size = 'md' }) {
 
       const [editingReport, setEditingReport] = useState(null);
       const [viewingReport, setViewingReport] = useState(null);
+      const [teacherEventFilter, setTeacherEventFilter] = useState('all');
 
       const reportDbError = (error, actionLabel) => {
         if (!error) return;
@@ -3070,12 +3601,16 @@ function SchoolLogo({ size = 'md' }) {
             ]);
 
             if (uRes.data?.length) {
-              const normalizedUsers = uRes.data.map((u) => ({
-                ...u,
-                subjects: Array.isArray(u.subjects) && u.subjects.length > 0
-                  ? u.subjects
-                  : (u.subject ? u.subject.split(',').map((s) => s.trim()).filter(Boolean) : [])
-              }));
+              const normalizedUsers = uRes.data.map((u) => {
+                const parsedSubjs = extractTeacherSubjects(u, []);
+                const parsedClasses = extractTeacherClasses(u);
+                return {
+                  ...u,
+                  subjects: parsedSubjs,
+                  subject: parsedSubjs.join(', ') || u.subject || '',
+                  classes: parsedClasses,
+                };
+              });
               setUsers(normalizedUsers);
             }
             if (subjRes.data?.length) {
@@ -3116,7 +3651,7 @@ function SchoolLogo({ size = 'md' }) {
                 component: r.component,
                 classGroup: String(r.class_group || '').trim(),
                 date: r.date,
-                trimester: r.trimester,
+                trimester: normalizeEventLabel(r.trimester),
                 answers: r.answers || {},
                 dimensionRatings: r.dimension_ratings || {},
                 studentRatings: r.student_ratings || {},
@@ -3214,7 +3749,7 @@ function SchoolLogo({ size = 'md' }) {
       const handleAddTeacher = async (t) => {
         setUsers((prev) => [...prev, t]);
         if (supabase) {
-          const { error } = await supabase.from('users').insert({
+          const basePayload = {
             id: t.id,
             name: t.name,
             username: t.username,
@@ -3222,9 +3757,13 @@ function SchoolLogo({ size = 'md' }) {
             password: t.password,
             role: t.role,
             subject: t.subject,
-            subjects: t.subjects,
             classes: t.classes,
-          });
+          };
+          let { error } = await supabase.from('users').insert({ ...basePayload, subjects: t.subjects });
+          if (error && String(error.message || '').toLowerCase().includes('subjects')) {
+            const retry = await supabase.from('users').insert(basePayload);
+            error = retry.error;
+          }
           reportDbError(error, 'cadastrar professor');
         }
       };
@@ -3232,19 +3771,138 @@ function SchoolLogo({ size = 'md' }) {
       const handleUpdateTeacher = async (updatedTeacher) => {
         setUsers((prev) => prev.map((u) => (u.id === updatedTeacher.id ? updatedTeacher : u)));
         if (supabase) {
-          const { error } = await supabase
+          const basePayload = {
+            name: updatedTeacher.name,
+            username: updatedTeacher.username,
+            subject: updatedTeacher.subject,
+            password: updatedTeacher.password,
+            classes: updatedTeacher.classes,
+          };
+          let { error } = await supabase
             .from('users')
-            .update({
-              name: updatedTeacher.name,
-              username: updatedTeacher.username,
-              subject: updatedTeacher.subject,
-              subjects: updatedTeacher.subjects,
-              password: updatedTeacher.password,
-              classes: updatedTeacher.classes,
-            })
+            .update({ ...basePayload, subjects: updatedTeacher.subjects })
             .eq('id', updatedTeacher.id);
+
+          if (error && String(error.message || '').toLowerCase().includes('subjects')) {
+            const retry = await supabase
+              .from('users')
+              .update(basePayload)
+              .eq('id', updatedTeacher.id);
+            error = retry.error;
+          }
           reportDbError(error, 'atualizar professor');
         }
+      };
+
+      // Importação em lote de professores (cria novos e atualiza existentes sem duplicar)
+      const handleUpsertMultipleTeachers = async (parsedTeachers) => {
+        let createdCount = 0;
+        let updatedCount = 0;
+
+        const nextUsers = [...users];
+        const newSubjectsToCreate = [];
+        const newClassesToCreate = [];
+
+        parsedTeachers.forEach((item, idx) => {
+          const finalSubjects = item.subjects.length > 0 ? item.subjects : [subjects[0] || 'Componente Curricular'];
+          const finalClasses = item.classes;
+
+          // Registra automaticamente matérias novas que vierem na planilha
+          finalSubjects.forEach((s) => {
+            if (!subjects.some((ex) => sameText(ex, s)) && !newSubjectsToCreate.some((ex) => sameText(ex, s))) {
+              newSubjectsToCreate.push(s);
+            }
+          });
+
+          // Registra automaticamente turmas novas que vierem na planilha
+          finalClasses.forEach((c) => {
+            if (!classes.some((ex) => sameClassGroup(ex.name, c)) && !newClassesToCreate.some((ex) => sameClassGroup(ex.name, c))) {
+              newClassesToCreate.push({
+                id: `cls-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 5)}`,
+                name: c,
+                grade: c,
+                shift: 'Matutino',
+                year: CURRENT_YEAR,
+                room: '',
+              });
+            }
+          });
+
+          const existingIdx = nextUsers.findIndex(
+            (u) => u.role === 'professor' && sameText(u.name, item.name)
+          );
+
+          if (existingIdx >= 0) {
+            const existing = nextUsers[existingIdx];
+            const mergedSubjects = Array.from(new Set([...extractTeacherSubjects(existing, []), ...finalSubjects]));
+            const mergedClasses = Array.from(new Set([...extractTeacherClasses(existing), ...finalClasses]));
+            nextUsers[existingIdx] = {
+              ...existing,
+              password: item.password || existing.password || '123',
+              subject: mergedSubjects.join(', '),
+              subjects: mergedSubjects,
+              classes: mergedClasses,
+            };
+            updatedCount += 1;
+          } else {
+            nextUsers.push({
+              id: `prof-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 5)}`,
+              name: item.name,
+              username: item.name,
+              email: `${item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '.')}@escola.gov.br`,
+              password: item.password || '123',
+              role: 'professor',
+              subject: finalSubjects.join(', '),
+              subjects: finalSubjects,
+              classes: finalClasses,
+            });
+            createdCount += 1;
+          }
+        });
+
+        setUsers(nextUsers);
+
+        if (newSubjectsToCreate.length > 0) {
+          const updatedSubjs = [...subjects, ...newSubjectsToCreate].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+          setSubjects(updatedSubjs);
+          localStorage.setItem('pre_conselho_subjects', JSON.stringify(updatedSubjs));
+          if (supabase) {
+            await supabase.from('school_subjects').insert(
+              newSubjectsToCreate.map((s, i) => ({ id: `subj-${Date.now()}-${i}`, name: s }))
+            );
+          }
+        }
+
+        if (newClassesToCreate.length > 0) {
+          setClasses((prev) => [...prev, ...newClassesToCreate]);
+          if (supabase) {
+            await supabase.from('school_classes').insert(newClassesToCreate);
+          }
+        }
+
+        if (supabase) {
+          const profsToSync = nextUsers.filter((u) => u.role === 'professor');
+          for (const p of profsToSync) {
+            const basePayload = {
+              id: p.id,
+              name: p.name,
+              username: p.username,
+              email: p.email,
+              password: p.password,
+              role: 'professor',
+              subject: p.subject,
+              classes: p.classes,
+            };
+            let { error } = await supabase.from('users').upsert({ ...basePayload, subjects: p.subjects });
+            if (error && String(error.message || '').toLowerCase().includes('subjects')) {
+              const retry = await supabase.from('users').upsert(basePayload);
+              error = retry.error;
+            }
+            if (error) reportDbError(error, 'importar professores');
+          }
+        }
+
+        return { createdCount, updatedCount };
       };
 
       const handleDeleteTeacher = async (id) => {
@@ -3350,7 +4008,7 @@ function SchoolLogo({ size = 'md' }) {
             component: r.component,
             class_group: r.classGroup,
             date: r.date,
-            trimester: r.trimester,
+            trimester: normalizeEventLabel(r.trimester),
             answers: r.answers,
             dimension_ratings: r.dimensionRatings,
             student_ratings: r.studentRatings,
@@ -3394,26 +4052,44 @@ function SchoolLogo({ size = 'md' }) {
       };
 
       const handleSaveReport = async (updated) => {
-        setReports((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
+        const enrichedStudentRatings = {};
+        if (updated.studentRatings) {
+          Object.entries(updated.studentRatings).forEach(([stdId, data]) => {
+            const stdObj = students.find((s) => s.id === stdId);
+            enrichedStudentRatings[stdId] = {
+              ...data,
+              studentName: stdObj?.name || data.studentName || '',
+              rollNumber: stdObj?.rollNumber || data.rollNumber || '',
+            };
+          });
+        }
+
+        const finalReport = {
+          ...updated,
+          trimester: normalizeEventLabel(updated.trimester),
+          studentRatings: enrichedStudentRatings,
+        };
+
+        setReports((prev) => prev.map((r) => (r.id === finalReport.id ? finalReport : r)));
         setEditingReport(null);
         if (supabase) {
           const { error } = await supabase.from('pre_council_reports').upsert({
-            id: updated.id,
-            school_name: updated.schoolName,
-            school_subtitle: updated.schoolSubtitle,
-            title: updated.title,
-            teacher_id: updated.teacherId,
-            teacher_name: updated.teacherName,
-            component: updated.component,
-            class_group: updated.classGroup,
-            date: updated.date,
-            trimester: updated.trimester,
-            answers: updated.answers,
-            dimension_ratings: updated.dimensionRatings,
-            student_ratings: updated.studentRatings,
-            status: updated.status,
-            pedagoga_signature: updated.pedagogaSignature,
-            diretora_signature: updated.diretoraSignature,
+            id: finalReport.id,
+            school_name: finalReport.schoolName,
+            school_subtitle: finalReport.schoolSubtitle,
+            title: finalReport.title,
+            teacher_id: finalReport.teacherId,
+            teacher_name: finalReport.teacherName,
+            component: finalReport.component,
+            class_group: finalReport.classGroup,
+            date: finalReport.date,
+            trimester: finalReport.trimester,
+            answers: finalReport.answers,
+            dimension_ratings: finalReport.dimensionRatings,
+            student_ratings: finalReport.studentRatings,
+            status: finalReport.status,
+            pedagoga_signature: finalReport.pedagogaSignature,
+            diretora_signature: finalReport.diretoraSignature,
             updated_at: new Date().toISOString()
           });
           reportDbError(error, 'salvar ficha');
@@ -3454,13 +4130,21 @@ function SchoolLogo({ size = 'md' }) {
       const teachers = users.filter((u) => u.role === 'professor');
       const directorTabs = [
         { id: 'questions', label: '1. Perguntas do Conselho' },
-        { id: 'release', label: '2. Liberar / Gerenciar Fichas' },
+        { id: 'release', label: '2. Eventos & Fichas' },
         { id: 'teachers', label: '3. Professores' },
         { id: 'subjects', label: '4. Matérias' },
         { id: 'classes', label: '5. Turmas' },
         { id: 'students', label: '6. Alunos (Excel)' },
         { id: 'charts', label: '7. Gráfico por Turma' },
       ];
+
+      const myReports = reports.filter((r) => r.teacherId === currentUser.id);
+      const myEvents = Array.from(new Set(myReports.map((r) => normalizeEventLabel(r.trimester)))).sort((a, b) =>
+        b.localeCompare(a, 'pt-BR')
+      );
+      const visibleTeacherReports = myReports.filter(
+        (r) => teacherEventFilter === 'all' || normalizeEventLabel(r.trimester) === teacherEventFilter
+      );
 
       return (
         <div className="min-h-screen flex flex-col">
@@ -3559,6 +4243,7 @@ function SchoolLogo({ size = 'md' }) {
                     onDeleteSubject={handleDeleteSubject}
                     onAddTeacher={handleAddTeacher}
                     onUpdateTeacher={handleUpdateTeacher}
+                    onUpsertMultipleTeachers={handleUpsertMultipleTeachers}
                     onDeleteTeacher={handleDeleteTeacher}
                     onAddClass={handleAddClass}
                     onDeleteClass={handleDeleteClass}
@@ -3589,46 +4274,71 @@ function SchoolLogo({ size = 'md' }) {
               />
             ) : (
               <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
-                <div className="bg-white p-5 rounded-2xl border border-stone-200">
-                  <h2 className="text-lg font-bold text-stone-900">Minhas Fichas de Pré-Conselho</h2>
-                  <p className="text-xs text-stone-500">Selecione uma ficha trimestral liberada pela Direção para responder.</p>
+                <div className="bg-white p-5 rounded-2xl border border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-stone-900">Minhas Fichas de Pré-Conselho</h2>
+                    <p className="text-xs text-stone-500">Selecione o evento/trimestre liberado pela Direção para responder ou consultar.</p>
+                  </div>
+
+                  {myEvents.length > 0 && (
+                    <select
+                      value={teacherEventFilter}
+                      onChange={(e) => setTeacherEventFilter(e.target.value)}
+                      className="bg-amber-50 border border-amber-300 text-amber-950 rounded-xl px-3 py-2 text-xs font-extrabold"
+                    >
+                      <option value="all">Todos os Eventos / Anos ({myReports.length})</option>
+                      {myEvents.map((ev) => (
+                        <option key={ev} value={ev}>{ev}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
-                {reports.filter((r) => r.teacherId === currentUser.id).length === 0 ? (
+                {visibleTeacherReports.length === 0 ? (
                   <div className="bg-white p-8 rounded-2xl border border-stone-200 text-center text-xs text-stone-500">
-                    Nenhuma ficha liberada para você no momento.
+                    Nenhuma ficha liberada para você nesta seleção.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {reports.filter((r) => r.teacherId === currentUser.id).map((r) => (
-                      <div key={r.id} className="bg-white p-5 rounded-2xl border border-stone-200 flex flex-col justify-between gap-4">
-                        <div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-full text-xs font-bold">{r.classGroup}</span>
-                            <span className="text-[11px] font-bold uppercase text-stone-500">{r.status}</span>
+                    {visibleTeacherReports.map((r) => {
+                      const evLabel = normalizeEventLabel(r.trimester);
+                      return (
+                        <div key={r.id} className="bg-white p-5 rounded-2xl border border-stone-200 flex flex-col justify-between gap-4">
+                          <div>
+                            <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-2.5 py-1 bg-amber-100 text-amber-950 border border-amber-300 rounded-full text-xs font-extrabold">
+                                  {evLabel}
+                                </span>
+                                <span className="px-2.5 py-1 bg-stone-100 text-stone-800 rounded-full text-xs font-bold">
+                                  {r.classGroup}
+                                </span>
+                              </div>
+                              <span className="text-[11px] font-bold uppercase text-stone-500">{r.status}</span>
+                            </div>
+                            <h3 className="text-sm font-bold text-stone-900">{r.component}</h3>
                           </div>
-                          <h3 className="text-sm font-bold text-stone-900">{r.component} — {r.trimester}</h3>
-                        </div>
 
-                        {r.status === 'pendente' || r.status === 'rascunho' ? (
-                          <button
-                            type="button"
-                            onClick={() => setEditingReport(r)}
-                            className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl cursor-pointer"
-                          >
-                            Preencher Ficha Agora
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => setViewingReport(r)}
-                            className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-xl cursor-pointer"
-                          >
-                            Visualizar / Imprimir Ficha
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                          {r.status === 'pendente' || r.status === 'rascunho' ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingReport(r)}
+                              className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+                            >
+                              Preencher Ficha Agora
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setViewingReport(r)}
+                              className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold rounded-xl cursor-pointer"
+                            >
+                              Visualizar / Imprimir Ficha
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
