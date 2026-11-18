@@ -144,7 +144,7 @@
 
     const sameClassGroup = (a, b) => sameText(a, b);
 
-    // Extrai TODAS as matérias do professor, seja do array `subjects` ou do texto `subject`
+    // Extrai TODAS as matérias do professor (do array `subjects` ou do texto `subject`)
     const extractTeacherSubjects = (teacher, fallbackSubjects = []) => {
       if (!teacher) return fallbackSubjects.length ? [fallbackSubjects[0]] : ['Componente Curricular'];
       const combined = [];
@@ -168,6 +168,29 @@
 
       if (combined.length > 0) return combined;
       return fallbackSubjects.length ? [fallbackSubjects[0]] : ['Componente Curricular'];
+    };
+
+    // Extrai TODAS as turmas do professor (seja array ou texto separado por vírgula)
+    const extractTeacherClasses = (teacher) => {
+      if (!teacher) return [];
+      const combined = [];
+
+      if (Array.isArray(teacher.classes)) {
+        teacher.classes.forEach((c) => {
+          const clean = String(c || '').trim();
+          if (clean && !combined.some((x) => sameClassGroup(x, clean))) combined.push(clean);
+        });
+      } else if (typeof teacher.classes === 'string' && teacher.classes.trim()) {
+        teacher.classes
+          .split(/[,;|/]+/)
+          .map((c) => c.trim())
+          .filter(Boolean)
+          .forEach((clean) => {
+            if (!combined.some((x) => sameClassGroup(x, clean))) combined.push(clean);
+          });
+      }
+
+      return combined;
     };
 
     const isStudentTransferred = (student) => {
@@ -972,13 +995,12 @@
       useEffect(() => {
         if (!activeTeacher) return;
         const tSubjs = extractTeacherSubjects(activeTeacher, subjects);
-        const tClasses =
-          Array.isArray(activeTeacher.classes) && activeTeacher.classes.length > 0
-            ? activeTeacher.classes
-            : [classes[0]?.name || '6º Ano A'];
+        const tClasses = extractTeacherClasses(activeTeacher);
+        const initialClasses =
+          tClasses.length > 0 ? tClasses : [classes[0]?.name || '6º Ano A'];
 
         setSelectedTeacherSubjects(tSubjs);
-        setSelectedTeacherClasses(tClasses);
+        setSelectedTeacherClasses(initialClasses);
       }, [selectedTeacherId, teachers]);
 
       const notify = (msg) => {
@@ -1012,7 +1034,8 @@
 
         if (releaseMode === 'all') {
           teachers.forEach((teacher) => {
-            const targetClasses = teacher.classes?.length ? teacher.classes : [classes[0]?.name || '6º Ano A'];
+            const tClasses = extractTeacherClasses(teacher);
+            const targetClasses = tClasses.length ? tClasses : [classes[0]?.name || '6º Ano A'];
             const targetSubjects = extractTeacherSubjects(teacher, subjects);
             targetClasses.forEach((cls) => {
               targetSubjects.forEach((subj) => {
@@ -1107,12 +1130,26 @@
       });
 
       const activeTeacherRegisteredSubjects = activeTeacher ? extractTeacherSubjects(activeTeacher, subjects) : [];
-      const activeTeacherRegisteredClasses = Array.isArray(activeTeacher?.classes) ? activeTeacher.classes : [];
+      const activeTeacherRegisteredClasses = activeTeacher ? extractTeacherClasses(activeTeacher) : [];
 
-      // Garante que nenhuma matéria vinculada ao professor fique de fora da lista mesmo se não estiver em SEED_SUBJECTS
-      const allSelectableSubjects = Array.from(
-        new Set([...subjects, ...activeTeacherRegisteredSubjects])
-      );
+      // Combina TODAS as matérias da escola + matérias cadastradas no professor
+      const allSelectableSubjects = [];
+      [...subjects, ...activeTeacherRegisteredSubjects].forEach((s) => {
+        const clean = String(s || '').trim();
+        if (clean && !allSelectableSubjects.some((x) => sameText(x, clean))) {
+          allSelectableSubjects.push(clean);
+        }
+      });
+
+      // Combina TODAS as turmas da escola + turmas cadastradas no professor (corrige o quadro 3!)
+      const allSelectableClassNames = [];
+      [...classes.map((c) => c.name), ...activeTeacherRegisteredClasses].forEach((clsName) => {
+        const clean = String(clsName || '').trim();
+        if (clean && !allSelectableClassNames.some((x) => sameClassGroup(x, clean))) {
+          allSelectableClassNames.push(clean);
+        }
+      });
+      allSelectableClassNames.sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -1226,7 +1263,7 @@
                     >
                       {teachers.map((t) => {
                         const listSubj = extractTeacherSubjects(t, subjects).join(', ');
-                        const listCls = (t.classes || []).join(', ');
+                        const listCls = extractTeacherClasses(t).join(', ');
                         return (
                           <option key={t.id} value={t.id}>
                             {t.name} — Matérias: [{listSubj}] • Turmas: [{listCls || 'Nenhuma'}]
@@ -1261,7 +1298,7 @@
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
+                      <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
                         {allSelectableSubjects.map((subj) => {
                           const isTeacherSubj = activeTeacherRegisteredSubjects.some((ts) =>
                             sameText(ts, subj)
@@ -1277,7 +1314,7 @@
                                   ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold'
                                   : isTeacherSubj
                                   ? 'bg-emerald-50/40 border-emerald-200 text-stone-800'
-                                  : 'bg-stone-50 border-stone-200 text-stone-500'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600'
                               }`}
                             >
                               <input
@@ -1324,23 +1361,23 @@
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
-                        {classes.map((c) => {
+                      <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-1">
+                        {allSelectableClassNames.map((clsName) => {
                           const belongsToTeacher = activeTeacherRegisteredClasses.some((tc) =>
-                            sameClassGroup(tc, c.name)
+                            sameClassGroup(tc, clsName)
                           );
                           const isChecked = selectedTeacherClasses.some((sc) =>
-                            sameClassGroup(sc, c.name)
+                            sameClassGroup(sc, clsName)
                           );
                           return (
                             <label
-                              key={c.id}
+                              key={clsName}
                               className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
                                 isChecked
                                   ? 'bg-amber-100 border-amber-500 text-amber-950 font-bold'
                                   : belongsToTeacher
                                   ? 'bg-amber-50/40 border-amber-200 text-stone-800'
-                                  : 'bg-stone-50 border-stone-200 text-stone-500'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600'
                               }`}
                             >
                               <input
@@ -1348,13 +1385,13 @@
                                 checked={isChecked}
                                 onChange={() =>
                                   setSelectedTeacherClasses((prev) =>
-                                    prev.some((x) => sameClassGroup(x, c.name))
-                                      ? prev.filter((x) => !sameClassGroup(x, c.name))
-                                      : [...prev, c.name]
+                                    prev.some((x) => sameClassGroup(x, clsName))
+                                      ? prev.filter((x) => !sameClassGroup(x, clsName))
+                                      : [...prev, clsName]
                                   )
                                 }
                               />
-                              <span>{c.name}</span>
+                              <span>{clsName}</span>
                             </label>
                           );
                         })}
@@ -2540,7 +2577,7 @@
         const list = extractTeacherSubjects(teacher, subjects);
         setSelectedSubjects(list);
         setTeacherPassword(teacher.password || '123');
-        setSelectedClasses(Array.isArray(teacher.classes) ? [...teacher.classes] : []);
+        setSelectedClasses(extractTeacherClasses(teacher));
         setTimeout(() => {
           formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }, 50);
@@ -2808,6 +2845,12 @@
 
       const isEditingAny = Boolean(editingTeacherId || editingStudentId);
 
+      // Garante que na edição do professor apareçam todas as matérias e turmas (inclusive as já vinculadas a ele)
+      const allTeacherFormSubjects = Array.from(new Set([...subjects, ...selectedSubjects]));
+      const allTeacherFormClasses = Array.from(
+        new Set([...classes.map((c) => c.name), ...selectedClasses])
+      ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
           {feedback && (
@@ -2973,7 +3016,7 @@
                     Matérias / Disciplinas ministradas pelo professor (selecione uma ou mais):
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {subjects.map((subj) => {
+                    {allTeacherFormSubjects.map((subj) => {
                       const isChecked = selectedSubjects.some((x) => sameText(x, subj));
                       return (
                         <label
@@ -3005,11 +3048,11 @@
                 <div>
                   <p className="text-xs font-bold text-stone-700 mb-1.5">Turmas do docente:</p>
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {classes.map((c) => {
-                      const isChecked = selectedClasses.some((x) => sameClassGroup(x, c.name));
+                    {allTeacherFormClasses.map((clsName) => {
+                      const isChecked = selectedClasses.some((x) => sameClassGroup(x, clsName));
                       return (
                         <label
-                          key={c.id}
+                          key={clsName}
                           className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
                             isChecked
                               ? 'bg-amber-50 border-amber-400 text-amber-900 font-semibold'
@@ -3021,13 +3064,13 @@
                             checked={isChecked}
                             onChange={() =>
                               setSelectedClasses((prev) =>
-                                prev.some((x) => sameClassGroup(x, c.name))
-                                  ? prev.filter((x) => !sameClassGroup(x, c.name))
-                                  : [...prev, c.name]
+                                prev.some((x) => sameClassGroup(x, clsName))
+                                  ? prev.filter((x) => !sameClassGroup(x, clsName))
+                                  : [...prev, clsName]
                               )
                             }
                           />
-                          <span>{c.name}</span>
+                          <span>{clsName}</span>
                         </label>
                       );
                     })}
@@ -3148,6 +3191,7 @@
 
             {tab === 'teachers' && teachers.map((t) => {
               const subjList = extractTeacherSubjects(t, []);
+              const clsList = extractTeacherClasses(t);
               return (
                 <div key={t.id} className="p-4 flex items-center justify-between gap-3 text-xs hover:bg-stone-50/70">
                   <div>
@@ -3165,7 +3209,7 @@
                       )}
                     </div>
                     <p className="text-stone-500 mt-1">
-                      Turmas: <strong>{(t.classes || []).join(', ') || 'Nenhuma'}</strong> • Senha: <strong>{t.password}</strong>
+                      Turmas: <strong>{clsList.join(', ') || 'Nenhuma'}</strong> • Senha: <strong>{t.password}</strong>
                     </p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -3400,10 +3444,12 @@
             if (uRes.data?.length) {
               const normalizedUsers = uRes.data.map((u) => {
                 const parsedSubjs = extractTeacherSubjects(u, []);
+                const parsedClasses = extractTeacherClasses(u);
                 return {
                   ...u,
                   subjects: parsedSubjs,
                   subject: parsedSubjs.join(', ') || u.subject || '',
+                  classes: parsedClasses,
                 };
               });
               setUsers(normalizedUsers);
@@ -3555,7 +3601,6 @@
             classes: t.classes,
           };
           let { error } = await supabase.from('users').insert({ ...basePayload, subjects: t.subjects });
-          // Fallback caso a coluna `subjects` ainda não exista na tabela `users` do Supabase
           if (error && String(error.message || '').toLowerCase().includes('subjects')) {
             const retry = await supabase.from('users').insert(basePayload);
             error = retry.error;
@@ -3579,7 +3624,6 @@
             .update({ ...basePayload, subjects: updatedTeacher.subjects })
             .eq('id', updatedTeacher.id);
 
-          // Fallback caso a coluna `subjects` ainda não exista na tabela `users` do Supabase
           if (error && String(error.message || '').toLowerCase().includes('subjects')) {
             const retry = await supabase
               .from('users')
