@@ -95,8 +95,17 @@
 
     const TRIMESTERS = ['1º Trimestre', '2º Trimestre', '3º Trimestre'];
 
-    const sameClassGroup = (a, b) =>
-      String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+   const normalizeClassText = (val) =>
+     String(val || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[º°ª]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+
+   const sameClassGroup = (a, b) => normalizeClassText(a) === normalizeClassText(b);
+
 
     const isStudentTransferred = (student) => {
       if (!student) return false;
