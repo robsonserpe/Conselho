@@ -115,7 +115,7 @@
       : null;
 
     // =========================================================================
-    // 2. CONSTANTES, EVENTOS LETIVOS E DADOS INICIAIS DA ESCOLA
+    // 2. CONSTANTES, EVENTOS LETIVOS E FUNÇÕES AUXILIARES
     // =========================================================================
     const SCHOOL_NAME = 'ESCOLA ESTADUAL DO CAMPO FREI GRACIANO DROESSLER';
     const SCHOOL_SUBTITLE = 'ENSINO FUNDAMENTAL E MÉDIO';
@@ -139,8 +139,36 @@
       return `2026 • ${val}`;
     };
 
-    const sameClassGroup = (a, b) =>
+    const sameText = (a, b) =>
       String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+
+    const sameClassGroup = (a, b) => sameText(a, b);
+
+    // Extrai TODAS as matérias do professor, seja do array `subjects` ou do texto `subject`
+    const extractTeacherSubjects = (teacher, fallbackSubjects = []) => {
+      if (!teacher) return fallbackSubjects.length ? [fallbackSubjects[0]] : ['Componente Curricular'];
+      const combined = [];
+
+      if (Array.isArray(teacher.subjects)) {
+        teacher.subjects.forEach((s) => {
+          const clean = String(s || '').trim();
+          if (clean && !combined.some((x) => sameText(x, clean))) combined.push(clean);
+        });
+      }
+
+      if (teacher.subject) {
+        String(teacher.subject)
+          .split(/[,;|/]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((clean) => {
+            if (!combined.some((x) => sameText(x, clean))) combined.push(clean);
+          });
+      }
+
+      if (combined.length > 0) return combined;
+      return fallbackSubjects.length ? [fallbackSubjects[0]] : ['Componente Curricular'];
+    };
 
     const isStudentTransferred = (student) => {
       if (!student) return false;
@@ -166,8 +194,8 @@
 
     const SEED_USERS = [
       { id: 'dir-1', name: 'Diretora', username: 'Diretora', email: 'direcao@freigraciano.pr.gov.br', password: '123', role: 'diretora', subject: '', subjects: [], classes: [] },
-      { id: 'prof-1', name: 'Ana Paula Ferreira', username: 'Ana Paula Ferreira', email: 'ana.ferreira@escola.gov.br', password: '123', role: 'professor', subject: 'Língua Portuguesa', subjects: ['Língua Portuguesa', 'Projeto de Vida'], classes: ['6º Ano A', '7º Ano A'] },
-      { id: 'prof-2', name: 'Carlos Eduardo Souza', username: 'Carlos Eduardo Souza', email: 'carlos.souza@escola.gov.br', password: '123', role: 'professor', subject: 'Matemática', subjects: ['Matemática', 'Física'], classes: ['6º Ano A', '8º Ano A'] },
+      { id: 'prof-1', name: 'Ana Paula Ferreira', username: 'Ana Paula Ferreira', email: 'ana.ferreira@escola.gov.br', password: '123', role: 'professor', subject: 'Língua Portuguesa, Projeto de Vida', subjects: ['Língua Portuguesa', 'Projeto de Vida'], classes: ['6º Ano A', '7º Ano A'] },
+      { id: 'prof-2', name: 'Carlos Eduardo Souza', username: 'Carlos Eduardo Souza', email: 'carlos.souza@escola.gov.br', password: '123', role: 'professor', subject: 'Matemática, Física', subjects: ['Matemática', 'Física'], classes: ['6º Ano A', '8º Ano A'] },
     ];
 
     const SEED_CLASSES = [
@@ -932,19 +960,18 @@
       const [reportToReopen, setReportToReopen] = useState(null);
       const [feedback, setFeedback] = useState(null);
 
-      const getTeacherSubjects = (t) => {
-        if (!t) return [subjects[0] || 'Componente Curricular'];
-        if (Array.isArray(t.subjects) && t.subjects.length > 0) return t.subjects;
-        if (t.subject) return t.subject.split(',').map((s) => s.trim()).filter(Boolean);
-        return [subjects[0] || 'Componente Curricular'];
-      };
+      useEffect(() => {
+        if (teachers.length > 0 && !teachers.some((t) => t.id === selectedTeacherId)) {
+          setSelectedTeacherId(teachers[0].id);
+        }
+      }, [teachers]);
 
       const activeTeacher = teachers.find((t) => t.id === selectedTeacherId) || teachers[0];
 
       // Sempre que mudar o professor selecionado, carrega AUTOMATICAMENTE todas as matérias e turmas dele
       useEffect(() => {
         if (!activeTeacher) return;
-        const tSubjs = getTeacherSubjects(activeTeacher);
+        const tSubjs = extractTeacherSubjects(activeTeacher, subjects);
         const tClasses =
           Array.isArray(activeTeacher.classes) && activeTeacher.classes.length > 0
             ? activeTeacher.classes
@@ -986,14 +1013,14 @@
         if (releaseMode === 'all') {
           teachers.forEach((teacher) => {
             const targetClasses = teacher.classes?.length ? teacher.classes : [classes[0]?.name || '6º Ano A'];
-            const targetSubjects = getTeacherSubjects(teacher);
+            const targetSubjects = extractTeacherSubjects(teacher, subjects);
             targetClasses.forEach((cls) => {
               targetSubjects.forEach((subj) => {
                 const exists = reports.some(
                   (r) =>
                     r.teacherId === teacher.id &&
                     sameClassGroup(r.classGroup, cls) &&
-                    r.component === subj &&
+                    sameText(r.component, subj) &&
                     normalizeEventLabel(r.trimester) === targetEventLabel
                 );
                 if (!exists) {
@@ -1034,7 +1061,7 @@
                 (r) =>
                   r.teacherId === activeTeacher.id &&
                   sameClassGroup(r.classGroup, cls) &&
-                  r.component === subj &&
+                  sameText(r.component, subj) &&
                   normalizeEventLabel(r.trimester) === targetEventLabel
               );
               if (!exists) {
@@ -1079,8 +1106,13 @@
         return true;
       });
 
-      const activeTeacherRegisteredSubjects = activeTeacher ? getTeacherSubjects(activeTeacher) : [];
+      const activeTeacherRegisteredSubjects = activeTeacher ? extractTeacherSubjects(activeTeacher, subjects) : [];
       const activeTeacherRegisteredClasses = Array.isArray(activeTeacher?.classes) ? activeTeacher.classes : [];
+
+      // Garante que nenhuma matéria vinculada ao professor fique de fora da lista mesmo se não estiver em SEED_SUBJECTS
+      const allSelectableSubjects = Array.from(
+        new Set([...subjects, ...activeTeacherRegisteredSubjects])
+      );
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -1193,7 +1225,7 @@
                       className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900"
                     >
                       {teachers.map((t) => {
-                        const listSubj = getTeacherSubjects(t).join(', ');
+                        const listSubj = extractTeacherSubjects(t, subjects).join(', ');
                         const listCls = (t.classes || []).join(', ');
                         return (
                           <option key={t.id} value={t.id}>
@@ -1209,30 +1241,43 @@
                     <div className="bg-white p-3.5 rounded-xl border border-stone-200">
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-bold text-stone-800">
-                          2. Matérias ({selectedTeacherSubjects.length} selecionada{selectedTeacherSubjects.length === 1 ? '' : 's'})
+                          2. Matérias ({selectedTeacherSubjects.length} marcada{selectedTeacherSubjects.length === 1 ? '' : 's'})
                         </label>
-                        {activeTeacherRegisteredSubjects.length > 0 && (
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
                             onClick={() => setSelectedTeacherSubjects(activeTeacherRegisteredSubjects)}
                             className="text-[11px] font-semibold text-amber-800 hover:underline cursor-pointer"
                           >
-                            Marcar do prof.
+                            Todas do prof. ({activeTeacherRegisteredSubjects.length})
                           </button>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeacherSubjects([])}
+                            className="text-[11px] font-semibold text-stone-500 hover:underline cursor-pointer"
+                          >
+                            Limpar
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {subjects.map((subj) => {
-                          const isTeacherSubj = activeTeacherRegisteredSubjects.includes(subj);
-                          const isChecked = selectedTeacherSubjects.includes(subj);
-                          if (!isTeacherSubj && !isChecked) return null;
+
+                      <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
+                        {allSelectableSubjects.map((subj) => {
+                          const isTeacherSubj = activeTeacherRegisteredSubjects.some((ts) =>
+                            sameText(ts, subj)
+                          );
+                          const isChecked = selectedTeacherSubjects.some((ss) =>
+                            sameText(ss, subj)
+                          );
                           return (
                             <label
                               key={subj}
                               className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
                                 isChecked
                                   ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold'
-                                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                                  : isTeacherSubj
+                                  ? 'bg-emerald-50/40 border-emerald-200 text-stone-800'
+                                  : 'bg-stone-50 border-stone-200 text-stone-500'
                               }`}
                             >
                               <input
@@ -1240,7 +1285,9 @@
                                 checked={isChecked}
                                 onChange={() =>
                                   setSelectedTeacherSubjects((prev) =>
-                                    prev.includes(subj) ? prev.filter((x) => x !== subj) : [...prev, subj]
+                                    prev.some((x) => sameText(x, subj))
+                                      ? prev.filter((x) => !sameText(x, subj))
+                                      : [...prev, subj]
                                   )
                                 }
                               />
@@ -1255,7 +1302,7 @@
                     <div className="bg-white p-3.5 rounded-xl border border-stone-200">
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-bold text-stone-800">
-                          3. Turmas de {activeTeacher?.name} ({selectedTeacherClasses.length} selecionada{selectedTeacherClasses.length === 1 ? '' : 's'})
+                          3. Turmas de {activeTeacher?.name} ({selectedTeacherClasses.length} marcada{selectedTeacherClasses.length === 1 ? '' : 's'})
                         </label>
                         <div className="flex items-center gap-2">
                           {activeTeacherRegisteredClasses.length > 0 && (
@@ -1264,7 +1311,7 @@
                               onClick={() => setSelectedTeacherClasses(activeTeacherRegisteredClasses)}
                               className="text-[11px] font-semibold text-amber-800 hover:underline cursor-pointer"
                             >
-                              Todas dele ({activeTeacherRegisteredClasses.length})
+                              Todas do prof. ({activeTeacherRegisteredClasses.length})
                             </button>
                           )}
                           <button
@@ -1277,7 +1324,7 @@
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
                         {classes.map((c) => {
                           const belongsToTeacher = activeTeacherRegisteredClasses.some((tc) =>
                             sameClassGroup(tc, c.name)
@@ -1321,8 +1368,9 @@
                       <span>
                         <strong>Resumo do envio:</strong> Serão liberadas{' '}
                         <strong className="underline">{specificCombinationsCount} ficha(s)</strong> para{' '}
-                        <strong>{activeTeacher?.name}</strong> ({selectedTeacherSubjects.join(', ')} — Turmas:{' '}
-                        <strong>{selectedTeacherClasses.join(', ')}</strong>).
+                        <strong>{activeTeacher?.name}</strong> — Matérias:{' '}
+                        <strong>{selectedTeacherSubjects.join(', ')}</strong> • Turmas:{' '}
+                        <strong>{selectedTeacherClasses.join(', ')}</strong>.
                       </span>
                     ) : (
                       <span className="text-red-700 font-semibold">
@@ -2465,12 +2513,6 @@
 
       const formRef = useRef(null);
 
-      const getTeacherSubjectsList = (t) => {
-        if (Array.isArray(t.subjects) && t.subjects.length > 0) return t.subjects;
-        if (t.subject) return t.subject.split(',').map((s) => s.trim()).filter(Boolean);
-        return [];
-      };
-
       useEffect(() => {
         setEditingTeacherId(null);
         setEditingStudentId(null);
@@ -2495,8 +2537,8 @@
       const startEditTeacher = (teacher) => {
         setEditingTeacherId(teacher.id);
         setName(teacher.name);
-        const list = getTeacherSubjectsList(teacher);
-        setSelectedSubjects(list.length > 0 ? list : (subjects[0] ? [subjects[0]] : []));
+        const list = extractTeacherSubjects(teacher, subjects);
+        setSelectedSubjects(list);
         setTeacherPassword(teacher.password || '123');
         setSelectedClasses(Array.isArray(teacher.classes) ? [...teacher.classes] : []);
         setTimeout(() => {
@@ -2562,7 +2604,7 @@
 
         if (tab === 'subjects') {
           const cleanSubj = name.trim();
-          if (subjects.some((s) => s.toLowerCase() === cleanSubj.toLowerCase())) {
+          if (subjects.some((s) => sameText(s, cleanSubj))) {
             notify(`A matéria "${cleanSubj}" já está cadastrada!`);
             return;
           }
@@ -2585,7 +2627,7 @@
                 password: teacherPassword.trim() || '123',
                 classes: selectedClasses,
               });
-              notify(`Dados de ${name.trim()} atualizados (matérias, senha e turmas salvas)!`);
+              notify(`Dados de ${name.trim()} atualizados (${finalSubjects.length} matéria(s), senha e turmas salvas)!`);
             }
             cancelEditTeacher();
           } else {
@@ -2932,7 +2974,7 @@
                   </p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {subjects.map((subj) => {
-                      const isChecked = selectedSubjects.includes(subj);
+                      const isChecked = selectedSubjects.some((x) => sameText(x, subj));
                       return (
                         <label
                           key={subj}
@@ -2947,7 +2989,9 @@
                             checked={isChecked}
                             onChange={() =>
                               setSelectedSubjects((prev) =>
-                                prev.includes(subj) ? prev.filter((x) => x !== subj) : [...prev, subj]
+                                prev.some((x) => sameText(x, subj))
+                                  ? prev.filter((x) => !sameText(x, subj))
+                                  : [...prev, subj]
                               )
                             }
                           />
@@ -2962,7 +3006,7 @@
                   <p className="text-xs font-bold text-stone-700 mb-1.5">Turmas do docente:</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {classes.map((c) => {
-                      const isChecked = selectedClasses.includes(c.name);
+                      const isChecked = selectedClasses.some((x) => sameClassGroup(x, c.name));
                       return (
                         <label
                           key={c.id}
@@ -2977,7 +3021,9 @@
                             checked={isChecked}
                             onChange={() =>
                               setSelectedClasses((prev) =>
-                                prev.includes(c.name) ? prev.filter((x) => x !== c.name) : [...prev, c.name]
+                                prev.some((x) => sameClassGroup(x, c.name))
+                                  ? prev.filter((x) => !sameClassGroup(x, c.name))
+                                  : [...prev, c.name]
                               )
                             }
                           />
@@ -3077,7 +3123,9 @@
 
           <div className="bg-white rounded-2xl border border-stone-200 divide-y divide-stone-100 overflow-hidden shadow-xs">
             {tab === 'subjects' && subjects.map((subj) => {
-              const profCount = teachers.filter((t) => getTeacherSubjectsList(t).includes(subj)).length;
+              const profCount = teachers.filter((t) =>
+                extractTeacherSubjects(t, subjects).some((ts) => sameText(ts, subj))
+              ).length;
               return (
                 <div key={subj} className="p-4 flex items-center justify-between text-xs hover:bg-stone-50/70">
                   <div>
@@ -3099,7 +3147,7 @@
             })}
 
             {tab === 'teachers' && teachers.map((t) => {
-              const subjList = getTeacherSubjectsList(t);
+              const subjList = extractTeacherSubjects(t, []);
               return (
                 <div key={t.id} className="p-4 flex items-center justify-between gap-3 text-xs hover:bg-stone-50/70">
                   <div>
@@ -3350,12 +3398,14 @@
             ]);
 
             if (uRes.data?.length) {
-              const normalizedUsers = uRes.data.map((u) => ({
-                ...u,
-                subjects: Array.isArray(u.subjects) && u.subjects.length > 0
-                  ? u.subjects
-                  : (u.subject ? u.subject.split(',').map((s) => s.trim()).filter(Boolean) : [])
-              }));
+              const normalizedUsers = uRes.data.map((u) => {
+                const parsedSubjs = extractTeacherSubjects(u, []);
+                return {
+                  ...u,
+                  subjects: parsedSubjs,
+                  subject: parsedSubjs.join(', ') || u.subject || '',
+                };
+              });
               setUsers(normalizedUsers);
             }
             if (subjRes.data?.length) {
@@ -3494,7 +3544,7 @@
       const handleAddTeacher = async (t) => {
         setUsers((prev) => [...prev, t]);
         if (supabase) {
-          const { error } = await supabase.from('users').insert({
+          const basePayload = {
             id: t.id,
             name: t.name,
             username: t.username,
@@ -3502,9 +3552,14 @@
             password: t.password,
             role: t.role,
             subject: t.subject,
-            subjects: t.subjects,
             classes: t.classes,
-          });
+          };
+          let { error } = await supabase.from('users').insert({ ...basePayload, subjects: t.subjects });
+          // Fallback caso a coluna `subjects` ainda não exista na tabela `users` do Supabase
+          if (error && String(error.message || '').toLowerCase().includes('subjects')) {
+            const retry = await supabase.from('users').insert(basePayload);
+            error = retry.error;
+          }
           reportDbError(error, 'cadastrar professor');
         }
       };
@@ -3512,17 +3567,26 @@
       const handleUpdateTeacher = async (updatedTeacher) => {
         setUsers((prev) => prev.map((u) => (u.id === updatedTeacher.id ? updatedTeacher : u)));
         if (supabase) {
-          const { error } = await supabase
+          const basePayload = {
+            name: updatedTeacher.name,
+            username: updatedTeacher.username,
+            subject: updatedTeacher.subject,
+            password: updatedTeacher.password,
+            classes: updatedTeacher.classes,
+          };
+          let { error } = await supabase
             .from('users')
-            .update({
-              name: updatedTeacher.name,
-              username: updatedTeacher.username,
-              subject: updatedTeacher.subject,
-              subjects: updatedTeacher.subjects,
-              password: updatedTeacher.password,
-              classes: updatedTeacher.classes,
-            })
+            .update({ ...basePayload, subjects: updatedTeacher.subjects })
             .eq('id', updatedTeacher.id);
+
+          // Fallback caso a coluna `subjects` ainda não exista na tabela `users` do Supabase
+          if (error && String(error.message || '').toLowerCase().includes('subjects')) {
+            const retry = await supabase
+              .from('users')
+              .update(basePayload)
+              .eq('id', updatedTeacher.id);
+            error = retry.error;
+          }
           reportDbError(error, 'atualizar professor');
         }
       };
