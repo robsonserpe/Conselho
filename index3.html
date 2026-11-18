@@ -314,38 +314,38 @@
       );
     }
 
-    // =========================================================================
-    // 5. LOGO OFICIAL DA ESCOLA
-    // =========================================================================
-    function SchoolLogo({ size = 'md' }) {
-      const dim = size === 'lg' ? 'w-16 h-16' : 'w-10 h-10';
-      return (
-        <div className="flex items-center gap-3 select-none">
-          <div className={`${dim} shrink-0`}>
-            <svg viewBox="0 0 48 48" fill="none" className="w-full h-full drop-shadow-sm">
-              <path d="M24 3L40 9V22C40 32.5 33.2 41.8 24 45C14.8 41.8 8 32.5 8 22V9L24 3Z" fill="#1E293B" stroke="#D97706" strokeWidth="1.8" />
-              <polygon points="24,11 25.5,14.5 29,15 26.5,17.5 27.2,21 24,19.2 20.8,21 21.5,17.5 19,15 22.5,14.5" fill="#F59E0B" />
-              <path d="M23.5 32C19.5 30 15 30.5 14 31V23C15 22.5 19.5 22 23.5 24V32Z" fill="#FFFFFF" />
-              <path d="M24.5 32C28.5 30 33 30.5 34 31V23C33 22.5 28.5 22 24.5 24V32Z" fill="#E2E8F0" />
-              <path d="M24 23.5V33" stroke="#D97706" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </div>
-          <div className="flex flex-col leading-none">
-            <div className="flex items-center gap-1.5">
-              <span className="font-black uppercase tracking-wider text-stone-900 text-sm sm:text-base">
-                Pré-Conselho
-              </span>
-              <span className="font-bold uppercase tracking-widest text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                Digital
-              </span>
-            </div>
-            <span className="font-medium tracking-wider uppercase mt-1 text-[10px] text-stone-500">
-              E.E.C. Frei Graciano Droessler
-            </span>
-          </div>
+
+// =========================================================================
+// 5. LOGO OFICIAL DA ESCOLA
+// =========================================================================
+function SchoolLogo({ size = 'md' }) {
+  const dim = size === 'lg' ? 'w-20 h-20' : 'w-12 h-12';
+  return (
+    <div className="flex items-center gap-3 select-none">
+      <div className={`${dim} shrink-0 flex items-center justify-center bg-white rounded-xl p-1 border border-stone-200 shadow-xs`}>
+        <img
+          src="logo frei.jpg"
+          alt="Logo E.E.C. Frei Graciano Droessler"
+          className="w-full h-full object-contain"
+        />
+      </div>
+      <div className="flex flex-col leading-none">
+        <div className="flex items-center gap-1.5">
+          <span className="font-black uppercase tracking-wider text-stone-900 text-sm sm:text-base">
+            Pré-Conselho
+          </span>
+          <span className="font-bold uppercase tracking-widest text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300">
+            Digital
+          </span>
         </div>
-      );
-    }
+        <span className="font-medium tracking-wider uppercase mt-1 text-[10px] text-stone-500">
+          E.E.C. Frei Graciano Droessler
+        </span>
+      </div>
+    </div>
+  );
+}
+
 
     // =========================================================================
     // 6. TELA DE LOGIN
