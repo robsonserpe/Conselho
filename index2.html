@@ -26,6 +26,9 @@
   <!-- SheetJS (XLSX) -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
 
+  <!-- html2pdf.js (Download direto de PDF) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -36,12 +39,35 @@
       font-family: 'Merriweather', serif;
     }
     @media print {
+      @page {
+        size: A4 portrait;
+        margin: 12mm;
+      }
       * {
         -webkit-print-color-adjust: exact !important;
         print-color-adjust: exact !important;
       }
+      html, body {
+        background: #ffffff !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
       body * {
         visibility: hidden;
+      }
+      #report-modal-overlay,
+      #report-modal-card {
+        position: static !important;
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
       }
       #printable-report-sheet,
       #printable-report-sheet *,
@@ -51,12 +77,14 @@
       }
       #printable-report-sheet,
       #printable-chart-sheet {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
+        position: static !important;
+        width: 100% !important;
         padding: 0 !important;
         margin: 0 !important;
+      }
+      .print-avoid-break {
+        break-inside: avoid;
+        page-break-inside: avoid;
       }
       .no-print {
         display: none !important;
@@ -95,17 +123,8 @@
 
     const TRIMESTERS = ['1º Trimestre', '2º Trimestre', '3º Trimestre'];
 
-   const normalizeClassText = (val) =>
-     String(val || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[º°ª]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
-
-   const sameClassGroup = (a, b) => normalizeClassText(a) === normalizeClassText(b);
-
+    const sameClassGroup = (a, b) =>
+      String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
     const isStudentTransferred = (student) => {
       if (!student) return false;
@@ -254,6 +273,7 @@
         logout: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />,
         help: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />,
         close: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />,
+        download: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />,
         database: <><ellipse cx="12" cy="5" rx="9" ry="3" strokeWidth="2" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></>,
       };
       return (
@@ -264,7 +284,7 @@
     };
 
     // =========================================================================
-    // 4. COMPONENTE DE DIÁLOGO DE CONFIRMAÇÃO
+    // 4. COMPONENTE DE DIÁLOGO DE CONFIRMAÇÃO E RODAPÉ INSTITUCIONAL
     // =========================================================================
     function ConfirmDialog({ isOpen, title, message, confirmText = 'Confirmar', onConfirm, onCancel }) {
       if (!isOpen) return null;
@@ -294,10 +314,36 @@
       );
     }
 
-    // =========================================================================
-    // 5. LOGO OFICIAL DA ESCOLA
-    // =========================================================================
-    // =========================================================================
+    function AppFooter({ variant = 'page' }) {
+      if (variant === 'login') {
+        return (
+          <footer className="mt-6 pt-4 border-t border-stone-200 text-center space-y-1">
+            <p className="text-xs font-bold text-stone-800">
+              Desenvolvido por Robson Serpe
+            </p>
+            <p className="text-[11px] text-stone-500">
+              © 2026 • Todos os direitos reservados
+            </p>
+          </footer>
+        );
+      }
+
+      return (
+        <footer className="no-print bg-white border-t border-stone-200 mt-10 py-4 px-4">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-1.5 text-center sm:text-left">
+            <p className="text-xs font-bold text-stone-700">
+              Desenvolvido por Robson Serpe
+            </p>
+            <p className="text-[11px] text-stone-500">
+              © 2026 • Todos os direitos reservados — {SCHOOL_NAME}
+            </p>
+          </div>
+        </footer>
+      );
+    }
+
+
+// =========================================================================
 // 5. LOGO OFICIAL DA ESCOLA
 // =========================================================================
 function SchoolLogo({ size = 'md' }) {
@@ -417,24 +463,7 @@ function SchoolLogo({ size = 'md' }) {
               </button>
             </form>
 
-            {/* Acesso Rápido */}
-            <div className="mt-6 pt-5 border-t border-stone-100">
-              <p className="text-[11px] font-semibold text-stone-500 text-center mb-2.5">
-                Acesso Rápido (Senha padrão: 123)
-              </p>
-              <div className="flex flex-wrap justify-center gap-2">
-                {users.slice(0, 3).map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => onLogin(u)}
-                    className="px-3 py-1.5 bg-stone-100 hover:bg-amber-100 text-stone-700 hover:text-amber-900 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer"
-                  >
-                    {u.role === 'diretora' ? 'Diretora (Gestão)' : `Prof. ${u.name.split(' ')[0]}`}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <AppFooter variant="login" />
           </div>
         </div>
       );
@@ -1524,6 +1553,7 @@ function SchoolLogo({ size = 'md' }) {
     // 10. MODAL DE VISUALIZAÇÃO OFICIAL E IMPRESSÃO PDF
     // =========================================================================
     function ReportViewModal({ report, questions, sections, students, currentUser, onClose, onSignReport }) {
+      const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
       const classStudents = students.filter((s) => sameClassGroup(s.classGroup, report.classGroup));
 
@@ -1552,14 +1582,66 @@ function SchoolLogo({ size = 'md' }) {
         return rating?.toUpperCase() || '';
       };
 
+      const buildSafeFileName = () => {
+        const clean = (str) =>
+          String(str || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-zA-Z0-9_-]+/g, '_')
+            .replace(/^_+|_+$/g, '');
+        return `Pre_Conselho_${clean(report.classGroup)}_${clean(report.component)}_${clean(report.teacherName)}_${clean(report.trimester)}.pdf`;
+      };
+
+      const handlePrintReport = () => {
+        const originalTitle = document.title;
+        document.title = buildSafeFileName().replace('.pdf', '');
+        window.print();
+        setTimeout(() => {
+          document.title = originalTitle;
+        }, 500);
+      };
+
+      const handleDownloadPdf = async () => {
+        const element = document.getElementById('printable-report-sheet');
+        if (!element) return;
+
+        if (!window.html2pdf) {
+          handlePrintReport();
+          return;
+        }
+
+        setIsDownloadingPdf(true);
+        try {
+          const opt = {
+            margin: [10, 10, 12, 10],
+            filename: buildSafeFileName(),
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: {
+              scale: 2,
+              useCORS: true,
+              letterRendering: true,
+              scrollY: 0,
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+          };
+          await window.html2pdf().set(opt).from(element).save();
+        } catch (err) {
+          console.error('Erro ao gerar PDF:', err);
+          handlePrintReport();
+        } finally {
+          setIsDownloadingPdf(false);
+        }
+      };
+
       return (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/70 flex justify-center items-start p-4">
-          <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-4">
-            <div className="no-print bg-stone-900 text-white px-6 py-3 flex items-center justify-between">
+        <div id="report-modal-overlay" className="fixed inset-0 z-50 overflow-y-auto bg-stone-900/70 flex justify-center items-start p-4">
+          <div id="report-modal-card" className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden my-4">
+            <div className="no-print bg-stone-900 text-white px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-2">
               <span className="text-xs font-bold text-amber-400">
                 Documento Oficial — {report.classGroup} ({report.component} • {report.trimester})
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {currentUser.role === 'diretora' && !report.diretoraSignature?.signed && (
                   <button
                     type="button"
@@ -1571,26 +1653,37 @@ function SchoolLogo({ size = 'md' }) {
                 )}
                 <button
                   type="button"
-                  onClick={() => window.print()}
+                  onClick={handlePrintReport}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-stone-700 hover:bg-stone-600 text-white text-xs font-semibold rounded-lg cursor-pointer"
+                  title="Abrir janela de impressão para imprimir em papel"
                 >
                   <Icon name="printer" className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Imprimir / PDF</span>
+                  <span>Imprimir</span>
                 </button>
-                <button type="button" onClick={onClose} className="p-1 text-stone-400 hover:text-white cursor-pointer">
+                <button
+                  type="button"
+                  disabled={isDownloadingPdf}
+                  onClick={handleDownloadPdf}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white text-xs font-bold rounded-lg shadow-xs cursor-pointer"
+                  title="Baixar arquivo PDF pronto para anexar e enviar por e-mail"
+                >
+                  <Icon name="download" className="w-3.5 h-3.5" />
+                  <span>{isDownloadingPdf ? 'Gerando PDF...' : 'Baixar PDF'}</span>
+                </button>
+                <button type="button" onClick={onClose} className="p-1 text-stone-400 hover:text-white cursor-pointer" title="Fechar">
                   <Icon name="close" className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div id="printable-report-sheet" className="p-8 bg-white text-stone-900 space-y-6">
-              <div className="border-2 border-stone-800 rounded-xl p-6 text-center">
+            <div id="printable-report-sheet" className="p-6 sm:p-8 bg-white text-stone-900 space-y-5">
+              <div className="print-avoid-break border-2 border-stone-800 rounded-xl p-5 text-center">
                 <h1 className="text-base font-extrabold uppercase font-serif">{report.schoolName}</h1>
                 <p className="text-xs font-semibold uppercase text-stone-600">{report.schoolSubtitle}</p>
                 <div className="my-2 mx-auto w-32 h-0.5 bg-stone-800" />
                 <h2 className="text-sm font-black uppercase tracking-widest">{report.title}</h2>
 
-                <div className="mt-5 pt-4 border-t border-stone-300 grid grid-cols-2 gap-4 text-left text-xs">
+                <div className="mt-4 pt-4 border-t border-stone-300 grid grid-cols-2 gap-3 text-left text-xs">
                   <div><strong>Componente:</strong> {report.component}</div>
                   <div><strong>Trimestre / Data:</strong> {report.trimester} ({report.date})</div>
                   <div><strong>Professor(a):</strong> {report.teacherName}</div>
@@ -1599,7 +1692,7 @@ function SchoolLogo({ size = 'md' }) {
               </div>
 
               {report.dimensionRatings && Object.keys(report.dimensionRatings).length > 0 && (
-                <div className="border border-stone-300 rounded-xl p-4">
+                <div className="print-avoid-break border border-stone-300 rounded-xl p-4">
                   <h3 className="text-xs font-bold uppercase font-serif border-b border-stone-200 pb-2 mb-3">
                     Avaliação Conceitual da Turma
                   </h3>
@@ -1627,7 +1720,7 @@ function SchoolLogo({ size = 'md' }) {
                       {sec.title}
                     </h3>
                     {secQs.map((q, idx) => (
-                      <div key={q.id} className="text-xs">
+                      <div key={q.id} className="print-avoid-break text-xs">
                         <p className="font-bold text-stone-900 mb-1">{idx + 1}. {q.prompt}</p>
                         <div className="p-3 bg-stone-50 border border-stone-200 rounded-lg whitespace-pre-wrap">
                           {report.answers?.[q.id] || <span className="italic text-stone-400">Sem registro.</span>}
@@ -1662,7 +1755,7 @@ function SchoolLogo({ size = 'md' }) {
                       ) : (
                         <div className="divide-y divide-emerald-200/80">
                           {goodStudents.map(({ student, rating, notes }) => (
-                            <div key={student.id} className="p-3 bg-emerald-50/40 text-xs">
+                            <div key={student.id} className="print-avoid-break p-3 bg-emerald-50/40 text-xs">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-bold text-emerald-950">
                                   {student.rollNumber ? `${student.rollNumber}. ` : ''}{student.name}
@@ -1699,7 +1792,7 @@ function SchoolLogo({ size = 'md' }) {
                       ) : (
                         <div className="divide-y divide-rose-200/80">
                           {badStudents.map(({ student, rating, notes }) => (
-                            <div key={student.id} className="p-3 bg-rose-50/40 text-xs">
+                            <div key={student.id} className="print-avoid-break p-3 bg-rose-50/40 text-xs">
                               <div className="flex items-center justify-between gap-2">
                                 <span className="font-bold text-rose-950">
                                   {student.rollNumber ? `${student.rollNumber}. ` : ''}{student.name}
@@ -1721,7 +1814,7 @@ function SchoolLogo({ size = 'md' }) {
                   </div>
 
                   {transferredStudents.length > 0 && (
-                    <div className="p-2.5 bg-stone-100 border border-stone-200 rounded-lg text-[11px] text-stone-600">
+                    <div className="print-avoid-break p-2.5 bg-stone-100 border border-stone-200 rounded-lg text-[11px] text-stone-600">
                       <strong>Estudantes Transferidos (sem avaliação conceitual):</strong>{' '}
                       {transferredStudents.map((s) => `${s.rollNumber ? s.rollNumber + '. ' : ''}${s.name}`).join(', ')}.
                     </div>
@@ -1729,7 +1822,7 @@ function SchoolLogo({ size = 'md' }) {
                 </div>
               )}
 
-              <div className="pt-8 border-t border-stone-300 grid grid-cols-3 gap-6 text-center text-xs">
+              <div className="print-avoid-break pt-8 border-t border-stone-300 grid grid-cols-3 gap-6 text-center text-xs">
                 <div>
                   <div className="border-b border-stone-500 pb-1 font-bold">{report.teacherName}</div>
                   <p className="text-[11px] text-stone-600 mt-1">Professor(a)</p>
@@ -1858,14 +1951,36 @@ function SchoolLogo({ size = 'md' }) {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold rounded-xl cursor-pointer shrink-0"
-            >
-              <Icon name="printer" className="w-4 h-4 text-amber-400" />
-              <span>Imprimir / Salvar PDF</span>
-            </button>
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-stone-800 hover:bg-stone-700 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                <Icon name="printer" className="w-4 h-4 text-amber-400" />
+                <span>Imprimir</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('printable-chart-sheet');
+                  if (!el || !window.html2pdf) { window.print(); return; }
+                  const clean = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '_');
+                  window.html2pdf().set({
+                    margin: [10, 10, 12, 10],
+                    filename: `Grafico_Consolidado_${clean(selectedClass)}_${clean(selectedTrimester)}.pdf`,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
+                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+                  }).from(el).save();
+                }}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-amber-700 hover:bg-amber-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                <Icon name="download" className="w-4 h-4" />
+                <span>Baixar PDF</span>
+              </button>
+            </div>
           </div>
 
           <div id="printable-chart-sheet" className="space-y-6">
@@ -3519,6 +3634,8 @@ function SchoolLogo({ size = 'md' }) {
               </div>
             )}
           </main>
+
+          <AppFooter variant="page" />
 
           {viewingReport && (
             <ReportViewModal
