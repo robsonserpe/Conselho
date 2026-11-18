@@ -125,7 +125,6 @@
     const SCHOOL_YEARS = [2025, 2026, 2027, 2028, 2029, 2030];
     const TRIMESTERS = ['1º Trimestre', '2º Trimestre', '3º Trimestre'];
 
-    // Padroniza o identificador do Evento Letivo (ex: "2026 • 1º Trimestre")
     const formatEventLabel = (year, periodName) => {
       const cleanPeriod = String(periodName || '').trim();
       if (!cleanPeriod) return `${year} • 1º Trimestre`;
@@ -133,17 +132,11 @@
       return `${year} • ${cleanPeriod}`;
     };
 
-    // Garante compatibilidade com fichas antigas salvas sem o ano (assume 2026)
     const normalizeEventLabel = (rawTrimester) => {
       const val = String(rawTrimester || '').trim();
       if (!val) return `${CURRENT_YEAR} • 1º Trimestre`;
       if (/^\d{4}\s*[•\-]/.test(val)) return val;
       return `2026 • ${val}`;
-    };
-
-    const extractYearFromEvent = (eventLabel) => {
-      const match = String(eventLabel || '').match(/^(\d{4})/);
-      return match ? Number(match[1]) : 2026;
     };
 
     const sameClassGroup = (a, b) =>
@@ -929,8 +922,8 @@
       const [customEventName, setCustomEventName] = useState('');
       const [releaseMode, setReleaseMode] = useState('all');
       const [selectedTeacherId, setSelectedTeacherId] = useState(teachers[0]?.id || '');
-      const [selectedClass, setSelectedClass] = useState(classes[0]?.name || '6º Ano A');
-      const [selectedSubject, setSelectedSubject] = useState('');
+      const [selectedTeacherSubjects, setSelectedTeacherSubjects] = useState([]);
+      const [selectedTeacherClasses, setSelectedTeacherClasses] = useState([]);
 
       const [filterEvent, setFilterEvent] = useState('all');
       const [filterClass, setFilterClass] = useState('all');
@@ -947,17 +940,23 @@
       };
 
       const activeTeacher = teachers.find((t) => t.id === selectedTeacherId) || teachers[0];
-      const activeTeacherSubjects = getTeacherSubjects(activeTeacher);
 
+      // Sempre que mudar o professor selecionado, carrega AUTOMATICAMENTE todas as matérias e turmas dele
       useEffect(() => {
-        if (activeTeacherSubjects.length > 0 && !activeTeacherSubjects.includes(selectedSubject)) {
-          setSelectedSubject(activeTeacherSubjects[0]);
-        }
+        if (!activeTeacher) return;
+        const tSubjs = getTeacherSubjects(activeTeacher);
+        const tClasses =
+          Array.isArray(activeTeacher.classes) && activeTeacher.classes.length > 0
+            ? activeTeacher.classes
+            : [classes[0]?.name || '6º Ano A'];
+
+        setSelectedTeacherSubjects(tSubjs);
+        setSelectedTeacherClasses(tClasses);
       }, [selectedTeacherId, teachers]);
 
       const notify = (msg) => {
         setFeedback(msg);
-        setTimeout(() => setFeedback(null), 4500);
+        setTimeout(() => setFeedback(null), 5000);
       };
 
       const targetEventLabel = formatEventLabel(
@@ -965,10 +964,14 @@
         trimesterPreset === 'custom' ? (customEventName || 'Conselho Extraordinário') : trimesterPreset
       );
 
-      // Lista única de todos os eventos já criados + evento atual selecionado
       const allEvents = Array.from(
         new Set([targetEventLabel, ...reports.map((r) => normalizeEventLabel(r.trimester))])
       ).sort((a, b) => b.localeCompare(a, 'pt-BR'));
+
+      const specificCombinationsCount =
+        releaseMode === 'specific'
+          ? selectedTeacherSubjects.length * selectedTeacherClasses.length
+          : 0;
 
       const handleRelease = async (e) => {
         e.preventDefault();
@@ -1019,39 +1022,45 @@
             });
           });
         } else {
-          const teacher = teachers.find((t) => t.id === selectedTeacherId);
-          if (teacher) {
-            const subj = selectedSubject || getTeacherSubjects(teacher)[0];
-            const exists = reports.some(
-              (r) =>
-                r.teacherId === teacher.id &&
-                sameClassGroup(r.classGroup, selectedClass) &&
-                r.component === subj &&
-                normalizeEventLabel(r.trimester) === targetEventLabel
-            );
-            if (!exists) {
-              created.push({
-                id: `rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                schoolName: SCHOOL_NAME,
-                schoolSubtitle: SCHOOL_SUBTITLE,
-                title: REPORT_TITLE,
-                teacherId: teacher.id,
-                teacherName: teacher.name,
-                component: subj,
-                classGroup: selectedClass.trim(),
-                date: todayStr,
-                trimester: targetEventLabel,
-                answers: {},
-                dimensionRatings: {},
-                studentRatings: {},
-                status: 'pendente',
-                pedagogaSignature: { signed: false },
-                diretoraSignature: { signed: false },
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              });
-            }
+          if (!activeTeacher) return;
+          if (selectedTeacherSubjects.length === 0 || selectedTeacherClasses.length === 0) {
+            notify('Selecione pelo menos uma matéria e uma turma do professor antes de liberar.');
+            return;
           }
+
+          selectedTeacherClasses.forEach((cls) => {
+            selectedTeacherSubjects.forEach((subj) => {
+              const exists = reports.some(
+                (r) =>
+                  r.teacherId === activeTeacher.id &&
+                  sameClassGroup(r.classGroup, cls) &&
+                  r.component === subj &&
+                  normalizeEventLabel(r.trimester) === targetEventLabel
+              );
+              if (!exists) {
+                created.push({
+                  id: `rep-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                  schoolName: SCHOOL_NAME,
+                  schoolSubtitle: SCHOOL_SUBTITLE,
+                  title: REPORT_TITLE,
+                  teacherId: activeTeacher.id,
+                  teacherName: activeTeacher.name,
+                  component: subj,
+                  classGroup: cls.trim(),
+                  date: todayStr,
+                  trimester: targetEventLabel,
+                  answers: {},
+                  dimensionRatings: {},
+                  studentRatings: {},
+                  status: 'pendente',
+                  pedagogaSignature: { signed: false },
+                  diretoraSignature: { signed: false },
+                  createdAt: new Date().toISOString(),
+                  updatedAt: new Date().toISOString(),
+                });
+              }
+            });
+          });
         }
 
         if (created.length === 0) {
@@ -1069,6 +1078,9 @@
         if (filterStatus !== 'all' && r.status !== filterStatus) return false;
         return true;
       });
+
+      const activeTeacherRegisteredSubjects = activeTeacher ? getTeacherSubjects(activeTeacher) : [];
+      const activeTeacherRegisteredClasses = Array.isArray(activeTeacher?.classes) ? activeTeacher.classes : [];
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -1154,57 +1166,169 @@
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">Modo de Liberação</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs cursor-pointer">
+                  <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                    releaseMode === 'all' ? 'bg-amber-50 border-amber-400 font-bold text-amber-950' : 'border-stone-200 bg-stone-50'
+                  }`}>
                     <input type="radio" checked={releaseMode === 'all'} onChange={() => setReleaseMode('all')} />
                     <span>Todos os Professores (Lote completo do Evento)</span>
                   </label>
-                  <label className="flex items-center gap-2 p-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs cursor-pointer">
+                  <label className={`flex items-center gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition-colors ${
+                    releaseMode === 'specific' ? 'bg-amber-50 border-amber-400 font-bold text-amber-950' : 'border-stone-200 bg-stone-50'
+                  }`}>
                     <input type="radio" checked={releaseMode === 'specific'} onChange={() => setReleaseMode('specific')} />
-                    <span>Professor / Turma Específico</span>
+                    <span>Apenas UM Professor (Escolher turmas e matérias)</span>
                   </label>
                 </div>
               </div>
 
               {releaseMode === 'specific' && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-stone-50 rounded-xl border border-stone-200">
+                <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200 space-y-4">
                   <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Professor</label>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      1. Selecione o Professor *
+                    </label>
                     <select
                       value={selectedTeacherId}
                       onChange={(e) => setSelectedTeacherId(e.target.value)}
-                      className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-xs"
+                      className="w-full bg-white border border-stone-300 rounded-xl px-3 py-2 text-xs font-bold text-stone-900"
                     >
                       {teachers.map((t) => {
                         const listSubj = getTeacherSubjects(t).join(', ');
+                        const listCls = (t.classes || []).join(', ');
                         return (
-                          <option key={t.id} value={t.id}>{t.name} ({listSubj})</option>
+                          <option key={t.id} value={t.id}>
+                            {t.name} — Matérias: [{listSubj}] • Turmas: [{listCls || 'Nenhuma'}]
+                          </option>
                         );
                       })}
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Matéria / Componente</label>
-                    <select
-                      value={selectedSubject}
-                      onChange={(e) => setSelectedSubject(e.target.value)}
-                      className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-xs font-semibold"
-                    >
-                      {subjects.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Seleção das Matérias do Professor */}
+                    <div className="bg-white p-3.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-stone-800">
+                          2. Matérias ({selectedTeacherSubjects.length} selecionada{selectedTeacherSubjects.length === 1 ? '' : 's'})
+                        </label>
+                        {activeTeacherRegisteredSubjects.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeacherSubjects(activeTeacherRegisteredSubjects)}
+                            className="text-[11px] font-semibold text-amber-800 hover:underline cursor-pointer"
+                          >
+                            Marcar do prof.
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {subjects.map((subj) => {
+                          const isTeacherSubj = activeTeacherRegisteredSubjects.includes(subj);
+                          const isChecked = selectedTeacherSubjects.includes(subj);
+                          if (!isTeacherSubj && !isChecked) return null;
+                          return (
+                            <label
+                              key={subj}
+                              className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-emerald-50 border-emerald-400 text-emerald-900 font-bold'
+                                  : 'bg-stone-50 border-stone-200 text-stone-600'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setSelectedTeacherSubjects((prev) =>
+                                    prev.includes(subj) ? prev.filter((x) => x !== subj) : [...prev, subj]
+                                  )
+                                }
+                              />
+                              <span>{subj}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Seleção das Turmas do Professor */}
+                    <div className="bg-white p-3.5 rounded-xl border border-stone-200">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs font-bold text-stone-800">
+                          3. Turmas de {activeTeacher?.name} ({selectedTeacherClasses.length} selecionada{selectedTeacherClasses.length === 1 ? '' : 's'})
+                        </label>
+                        <div className="flex items-center gap-2">
+                          {activeTeacherRegisteredClasses.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedTeacherClasses(activeTeacherRegisteredClasses)}
+                              className="text-[11px] font-semibold text-amber-800 hover:underline cursor-pointer"
+                            >
+                              Todas dele ({activeTeacherRegisteredClasses.length})
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedTeacherClasses([])}
+                            className="text-[11px] font-semibold text-stone-500 hover:underline cursor-pointer"
+                          >
+                            Limpar
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {classes.map((c) => {
+                          const belongsToTeacher = activeTeacherRegisteredClasses.some((tc) =>
+                            sameClassGroup(tc, c.name)
+                          );
+                          const isChecked = selectedTeacherClasses.some((sc) =>
+                            sameClassGroup(sc, c.name)
+                          );
+                          return (
+                            <label
+                              key={c.id}
+                              className={`text-xs flex items-center gap-1.5 px-2.5 py-1 rounded-lg border cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-amber-100 border-amber-500 text-amber-950 font-bold'
+                                  : belongsToTeacher
+                                  ? 'bg-amber-50/40 border-amber-200 text-stone-800'
+                                  : 'bg-stone-50 border-stone-200 text-stone-500'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() =>
+                                  setSelectedTeacherClasses((prev) =>
+                                    prev.some((x) => sameClassGroup(x, c.name))
+                                      ? prev.filter((x) => !sameClassGroup(x, c.name))
+                                      : [...prev, c.name]
+                                  )
+                                }
+                              />
+                              <span>{c.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Turma</label>
-                    <select
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                      className="w-full bg-white border border-stone-300 rounded-lg px-3 py-2 text-xs"
-                    >
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
+
+                  {/* Resumo claro do que será enviado */}
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-950">
+                    {specificCombinationsCount > 0 ? (
+                      <span>
+                        <strong>Resumo do envio:</strong> Serão liberadas{' '}
+                        <strong className="underline">{specificCombinationsCount} ficha(s)</strong> para{' '}
+                        <strong>{activeTeacher?.name}</strong> ({selectedTeacherSubjects.join(', ')} — Turmas:{' '}
+                        <strong>{selectedTeacherClasses.join(', ')}</strong>).
+                      </span>
+                    ) : (
+                      <span className="text-red-700 font-semibold">
+                        Marque pelo menos uma matéria e uma turma acima para liberar.
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -1215,7 +1339,11 @@
                   className="flex items-center gap-2 px-5 py-2.5 bg-amber-800 hover:bg-amber-900 text-white text-xs font-bold rounded-xl cursor-pointer"
                 >
                   <Icon name="send" className="w-4 h-4" />
-                  <span>Liberar Fichas para "{targetEventLabel}"</span>
+                  <span>
+                    {releaseMode === 'specific'
+                      ? `Liberar ${specificCombinationsCount} Ficha(s) para ${activeTeacher?.name || 'Professor'}`
+                      : `Liberar Fichas para "${targetEventLabel}"`}
+                  </span>
                 </button>
               </div>
             </form>
@@ -1667,7 +1795,6 @@
       const sortedSections = [...sections].sort((a, b) => a.order - b.order);
       const eventDisplay = normalizeEventLabel(report.trimester);
 
-      // Usa os alunos avaliados na própria ficha se disponíveis (preserva o histórico mesmo nos anos seguintes!)
       const ratedIds = report.studentRatings ? Object.keys(report.studentRatings) : [];
       const currentClassStudents = students.filter((s) => sameClassGroup(s.classGroup, report.classGroup));
 
@@ -3547,7 +3674,6 @@
       };
 
       const handleSaveReport = async (updated) => {
-        // Grava também o nome e número de chamada do aluno dentro de studentRatings para preservar o histórico dos anos anteriores
         const enrichedStudentRatings = {};
         if (updated.studentRatings) {
           Object.entries(updated.studentRatings).forEach(([stdId, data]) => {
