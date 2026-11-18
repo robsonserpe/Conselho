@@ -193,6 +193,26 @@
       return combined;
     };
 
+    // [NOVO] Consolida TODAS as turmas existentes no sistema (tabela school_classes +
+    // turmas vinculadas aos professores + turmas das fichas/relatórios + turmas dos alunos).
+    // Evita que turmas cadastradas ou importadas fiquem ocultas nos menus de filtro e gráficos.
+    const collectAllClassNames = (classesList = [], teachersList = [], reportsList = [], studentsList = []) => {
+      const unique = [];
+      const pushUnique = (raw) => {
+        const clean = String(raw || '').trim();
+        if (clean && !unique.some((x) => sameClassGroup(x, clean))) {
+          unique.push(clean);
+        }
+      };
+
+      classesList.forEach((c) => pushUnique(typeof c === 'string' ? c : c?.name));
+      teachersList.forEach((t) => extractTeacherClasses(t).forEach(pushUnique));
+      reportsList.forEach((r) => pushUnique(r?.classGroup));
+      studentsList.forEach((s) => pushUnique(s?.classGroup));
+
+      return unique.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    };
+
     const isStudentTransferred = (student) => {
       if (!student) return false;
       const statusStr = String(student.status || '').toLowerCase();
@@ -1132,7 +1152,6 @@
       const activeTeacherRegisteredSubjects = activeTeacher ? extractTeacherSubjects(activeTeacher, subjects) : [];
       const activeTeacherRegisteredClasses = activeTeacher ? extractTeacherClasses(activeTeacher) : [];
 
-      // Combina TODAS as matérias da escola + matérias cadastradas no professor
       const allSelectableSubjects = [];
       [...subjects, ...activeTeacherRegisteredSubjects].forEach((s) => {
         const clean = String(s || '').trim();
@@ -1141,15 +1160,8 @@
         }
       });
 
-      // Combina TODAS as turmas da escola + turmas cadastradas no professor (corrige o quadro 3!)
-      const allSelectableClassNames = [];
-      [...classes.map((c) => c.name), ...activeTeacherRegisteredClasses].forEach((clsName) => {
-        const clean = String(clsName || '').trim();
-        if (clean && !allSelectableClassNames.some((x) => sameClassGroup(x, clean))) {
-          allSelectableClassNames.push(clean);
-        }
-      });
-      allSelectableClassNames.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+      // [ATUALIZADO] Consolida todas as turmas existentes para tanto a liberação quanto o filtro
+      const allSelectableClassNames = collectAllClassNames(classes, teachers, reports, []);
 
       return (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
@@ -1274,7 +1286,6 @@
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Seleção das Matérias do Professor */}
                     <div className="bg-white p-3.5 rounded-xl border border-stone-200">
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-bold text-stone-800">
@@ -1335,7 +1346,6 @@
                       </div>
                     </div>
 
-                    {/* Seleção das Turmas do Professor */}
                     <div className="bg-white p-3.5 rounded-xl border border-stone-200">
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-xs font-bold text-stone-800">
@@ -1399,7 +1409,6 @@
                     </div>
                   </div>
 
-                  {/* Resumo claro do que será enviado */}
                   <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-950">
                     {specificCombinationsCount > 0 ? (
                       <span>
@@ -1456,8 +1465,8 @@
                   className="bg-white border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
                 >
                   <option value="all">Todas as Turmas</option>
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                  {allSelectableClassNames.map((clsName) => (
+                    <option key={clsName} value={clsName}>{clsName}</option>
                   ))}
                 </select>
                 <select
@@ -2177,7 +2186,11 @@
     // =========================================================================
     // 11. PAINEL GRÁFICO CONSOLIDADO POR TURMA E EVENTO LETIVO
     // =========================================================================
-    function ClassChartsDashboard({ classes, reports }) {
+    function ClassChartsDashboard({ classes, teachers = [], students = [], reports }) {
+      // [ATUALIZADO] Consolida todas as turmas existentes (tabela school_classes + professores + relatórios + alunos)
+      // para que TODAS as turmas apareçam no seletor de Gráfico por Turma.
+      const availableClasses = collectAllClassNames(classes, teachers, reports, students);
+
       const availableEvents = Array.from(
         new Set([
           `${CURRENT_YEAR} • 1º Trimestre`,
@@ -2187,14 +2200,14 @@
         ])
       ).sort((a, b) => b.localeCompare(a, 'pt-BR'));
 
-      const [selectedClass, setSelectedClass] = useState(classes[0]?.name || '6º Ano A');
+      const [selectedClass, setSelectedClass] = useState(availableClasses[0] || '6º Ano A');
       const [selectedEvent, setSelectedEvent] = useState(availableEvents[0] || `${CURRENT_YEAR} • 1º Trimestre`);
 
       useEffect(() => {
-        if (classes.length > 0 && !classes.some((c) => sameClassGroup(c.name, selectedClass))) {
-          setSelectedClass(classes[0].name);
+        if (availableClasses.length > 0 && !availableClasses.some((c) => sameClassGroup(c, selectedClass))) {
+          setSelectedClass(availableClasses[0]);
         }
-      }, [classes]);
+      }, [classes, teachers, reports, students]);
 
       useEffect(() => {
         if (availableEvents.length > 0 && !availableEvents.includes(selectedEvent)) {
@@ -2272,8 +2285,8 @@
                   onChange={(e) => setSelectedClass(e.target.value)}
                   className="w-full bg-stone-50 border border-stone-300 rounded-xl px-3.5 py-2 text-xs font-bold text-stone-900"
                 >
-                  {classes.map((c) => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                  {availableClasses.map((clsName) => (
+                    <option key={clsName} value={clsName}>{clsName}</option>
                   ))}
                 </select>
               </div>
@@ -2512,7 +2525,7 @@
     }
 
     // =========================================================================
-    // 12. CADASTRO E EDIÇÃO DE PROFESSORES, MATÉRIAS, TURMAS E ALUNOS
+    // 12. CADASTRO E IMPORTAÇÃO EXCEL DE PROFESSORES, MATÉRIAS, TURMAS E ALUNOS
     // =========================================================================
     function SchoolEntitiesManager({
       tab,
@@ -2524,6 +2537,7 @@
       onDeleteSubject,
       onAddTeacher,
       onUpdateTeacher,
+      onUpsertMultipleTeachers,
       onDeleteTeacher,
       onAddClass,
       onDeleteClass,
@@ -2533,13 +2547,16 @@
       onDeleteStudent,
       onDeleteStudentsByClass,
     }) {
+      // [ATUALIZADO] Consolida todas as turmas existentes para uso no cadastro e filtro de alunos
+      const allConsolidatedClasses = collectAllClassNames(classes, teachers, [], students);
+
       const [name, setName] = useState('');
       const [extra1, setExtra1] = useState(subjects[0] || '');
-      const [extra2, setExtra2] = useState(classes[0]?.name || '6º Ano A');
+      const [extra2, setExtra2] = useState(allConsolidatedClasses[0] || '6º Ano A');
       const [classYear, setClassYear] = useState(CURRENT_YEAR);
       const [teacherPassword, setTeacherPassword] = useState('123');
       const [selectedSubjects, setSelectedSubjects] = useState(subjects[0] ? [subjects[0]] : []);
-      const [selectedClasses, setSelectedClasses] = useState([classes[0]?.name || '6º Ano A']);
+      const [selectedClasses, setSelectedClasses] = useState([allConsolidatedClasses[0] || '6º Ano A']);
       const [studentNotes, setStudentNotes] = useState('');
       const [studentStatusSelect, setStudentStatusSelect] = useState('ativo');
       const [studentClassFilter, setStudentClassFilter] = useState('all');
@@ -2557,7 +2574,7 @@
         setTeacherPassword('123');
         setClassYear(CURRENT_YEAR);
         setExtra1(tab === 'teachers' ? (subjects[0] || '') : '');
-        const defaultCls = classes[0]?.name || '6º Ano A';
+        const defaultCls = allConsolidatedClasses[0] || '6º Ano A';
         setExtra2(tab === 'classes' ? 'Matutino' : defaultCls);
         setStudentNotes('');
         setStudentStatusSelect('ativo');
@@ -2568,7 +2585,7 @@
 
       const notify = (msg) => {
         setFeedback(msg);
-        setTimeout(() => setFeedback(null), 3500);
+        setTimeout(() => setFeedback(null), 5000);
       };
 
       const startEditTeacher = (teacher) => {
@@ -2588,14 +2605,14 @@
         setName('');
         setSelectedSubjects(subjects[0] ? [subjects[0]] : []);
         setTeacherPassword('123');
-        setSelectedClasses(classes[0]?.name ? [classes[0].name] : []);
+        setSelectedClasses(allConsolidatedClasses[0] ? [allConsolidatedClasses[0]] : []);
       };
 
       const startEditStudent = (student) => {
         setEditingStudentId(student.id);
         setName(student.name);
         setExtra1(student.rollNumber || '');
-        setExtra2(student.classGroup || classes[0]?.name || '6º Ano A');
+        setExtra2(student.classGroup || allConsolidatedClasses[0] || '6º Ano A');
         const transferred = isStudentTransferred(student);
         setStudentStatusSelect(transferred ? 'transferido' : 'ativo');
         setStudentNotes(student.notes || '');
@@ -2696,7 +2713,7 @@
           setName('');
         } else if (tab === 'students') {
           const cleanNotes = studentNotes.trim();
-          const targetCls = (extra2 || classes[0]?.name || '6º Ano A').trim();
+          const targetCls = (extra2 || allConsolidatedClasses[0] || '6º Ano A').trim();
           const isTransferred =
             studentStatusSelect === 'transferido' || cleanNotes.toLowerCase().includes('transfer');
           const finalNotes = isTransferred
@@ -2740,6 +2757,138 @@
         }
       };
 
+      // =======================================================================
+      // DOWNLOAD E IMPORTAÇÃO EXCEL DE PROFESSORES
+      // =======================================================================
+      const handleDownloadTeacherTemplate = () => {
+        if (!window.XLSX) {
+          notify('Biblioteca Excel ainda carregando, aguarde um instante.');
+          return;
+        }
+        const sampleData = [
+          ['Nome', 'Senha', 'Matérias', 'Turmas'],
+          ['Luis Fernando', '123', 'Língua Inglesa, Projeto de Vida', '6º Ano A, 7º Ano A, 8º Ano A, 9º Ano A'],
+          ['Robson Serpe', '123', 'Matemática, Física', '8º Ano A, 9º Ano A'],
+          ['Maria Clara Mendes', '123', 'Língua Portuguesa, Arte', '6º Ano A, 7º Ano A'],
+        ];
+        const ws = window.XLSX.utils.aoa_to_sheet(sampleData);
+        ws['!cols'] = [{ wch: 28 }, { wch: 12 }, { wch: 36 }, { wch: 38 }];
+        const wb = window.XLSX.utils.book_new();
+        window.XLSX.utils.book_append_sheet(wb, ws, 'Professores');
+        window.XLSX.writeFile(wb, 'Modelo_Importacao_Professores.xlsx');
+      };
+
+      const handleTeacherExcelImport = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!window.XLSX) {
+          notify('Erro: biblioteca de leitura Excel não carregada. Verifique a internet.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          try {
+            const data = new Uint8Array(evt.target.result);
+            const wb = window.XLSX.read(data, { type: 'array' });
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const rows = window.XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+            let startIdx = 0;
+            if (rows.length > 0) {
+              const firstRowText = rows[0].map((c) => String(c || '').trim().toLowerCase()).join(' ');
+              if (
+                firstRowText.includes('nome') ||
+                firstRowText.includes('professor') ||
+                firstRowText.includes('materia') ||
+                firstRowText.includes('matéria') ||
+                firstRowText.includes('turma')
+              ) {
+                startIdx = 1;
+              }
+            }
+
+            // Mapa para consolidar linhas repetidas do mesmo professor (ex: linha 1 = 6A Matemática, linha 2 = 9A Física)
+            const groupedMap = new Map();
+
+            for (let i = startIdx; i < rows.length; i++) {
+              const row = rows[i] || [];
+              const rawName = String(row[0] ?? '').trim();
+              if (!rawName) continue;
+
+              const rawPass = String(row[1] ?? '').trim() || '123';
+              const rawSubjectsCol = String(row[2] ?? '').trim();
+              const rawClassesCol = String(row[3] ?? '').trim();
+
+              const key = rawName.toLowerCase();
+              if (!groupedMap.has(key)) {
+                groupedMap.set(key, {
+                  name: rawName,
+                  password: rawPass,
+                  subjects: [],
+                  classes: [],
+                });
+              }
+              const entry = groupedMap.get(key);
+              if (rawPass && rawPass !== '123') entry.password = rawPass;
+
+              const extractItems = (text) =>
+                text
+                  .split(/[,;|]+/)
+                  .map((item) => item.trim())
+                  .filter(Boolean);
+
+              extractItems(rawSubjectsCol).forEach((item) => {
+                if (item.includes(':')) {
+                  const [clsPart, subjPart] = item.split(':').map((p) => p.trim());
+                  if (clsPart && !entry.classes.some((x) => sameClassGroup(x, clsPart))) {
+                    entry.classes.push(clsPart);
+                  }
+                  if (subjPart && !entry.subjects.some((x) => sameText(x, subjPart))) {
+                    entry.subjects.push(subjPart);
+                  }
+                } else if (!entry.subjects.some((x) => sameText(x, item))) {
+                  entry.subjects.push(item);
+                }
+              });
+
+              extractItems(rawClassesCol).forEach((item) => {
+                if (item.includes(':')) {
+                  const [clsPart, subjPart] = item.split(':').map((p) => p.trim());
+                  if (clsPart && !entry.classes.some((x) => sameClassGroup(x, clsPart))) {
+                    entry.classes.push(clsPart);
+                  }
+                  if (subjPart && !entry.subjects.some((x) => sameText(x, subjPart))) {
+                    entry.subjects.push(subjPart);
+                  }
+                } else if (!entry.classes.some((x) => sameClassGroup(x, item))) {
+                  entry.classes.push(item);
+                }
+              });
+            }
+
+            const parsedList = Array.from(groupedMap.values());
+            if (parsedList.length === 0) {
+              notify('Nenhum professor válido encontrado na planilha. Colunas esperadas: Nome | Senha | Matérias | Turmas.');
+              return;
+            }
+
+            const result = await onUpsertMultipleTeachers(parsedList);
+            notify(
+              `Importação concluída! ${result.createdCount} professor(es) novo(s) cadastrado(s) e ${result.updatedCount} atualizado(s).`
+            );
+          } catch (err) {
+            console.error('Erro ao ler planilha de professores:', err);
+            notify('Não foi possível ler o arquivo. Salve como .xlsx ou .csv e tente novamente.');
+          } finally {
+            e.target.value = '';
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      };
+
+      // =======================================================================
+      // DOWNLOAD E IMPORTAÇÃO EXCEL DE ALUNOS
+      // =======================================================================
       const handleDownloadTemplate = () => {
         if (!window.XLSX) {
           notify('Biblioteca Excel ainda carregando, aguarde um instante.');
@@ -2765,7 +2914,7 @@
           notify('Erro: biblioteca de leitura Excel não carregada. Verifique a internet.');
           return;
         }
-        const targetClass = (extra2 || classes[0]?.name || '6º Ano A').trim();
+        const targetClass = (extra2 || allConsolidatedClasses[0] || '6º Ano A').trim();
         const reader = new FileReader();
         reader.onload = async (evt) => {
           try {
@@ -2845,10 +2994,9 @@
 
       const isEditingAny = Boolean(editingTeacherId || editingStudentId);
 
-      // Garante que na edição do professor apareçam todas as matérias e turmas (inclusive as já vinculadas a ele)
       const allTeacherFormSubjects = Array.from(new Set([...subjects, ...selectedSubjects]));
       const allTeacherFormClasses = Array.from(
-        new Set([...classes.map((c) => c.name), ...selectedClasses])
+        new Set([...allConsolidatedClasses, ...selectedClasses])
       ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
       return (
@@ -2873,7 +3021,7 @@
                   : tab === 'teachers'
                   ? editingTeacherId
                     ? 'Editar Professor (Matérias, Senha e Turmas)'
-                    : 'Cadastro de Professores'
+                    : 'Cadastro e Importação de Professores (Individual ou Excel)'
                   : tab === 'classes'
                   ? 'Cadastro de Turmas'
                   : editingStudentId
@@ -2991,8 +3139,8 @@
                       }}
                       className="w-full bg-amber-50 border border-amber-400 rounded-xl px-3 py-2 text-xs font-bold text-amber-950"
                     >
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
+                      {allConsolidatedClasses.map((clsName) => (
+                        <option key={clsName} value={clsName}>{clsName}</option>
                       ))}
                     </select>
                   </div>
@@ -3010,7 +3158,7 @@
             </form>
 
             {tab === 'teachers' && (
-              <div className="mt-4 pt-3 border-t border-stone-100 space-y-3">
+              <div className="mt-4 pt-3 border-t border-stone-100 space-y-4">
                 <div>
                   <p className="text-xs font-bold text-stone-700 mb-1.5">
                     Matérias / Disciplinas ministradas pelo professor (selecione uma ou mais):
@@ -3076,6 +3224,37 @@
                     })}
                   </div>
                 </div>
+
+                {!editingTeacherId && (
+                  <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-bold text-stone-800">
+                        Importar Todos os Professores via Excel (.xlsx, .xls ou .csv)
+                      </p>
+                      <p className="text-[11px] text-stone-600 mt-0.5">
+                        Colunas: <strong>Nome</strong> | <strong>Senha</strong> | <strong>Matérias</strong> | <strong>Turmas</strong>. Separe múltiplas matérias ou turmas por vírgula (ex: <em>Matemática, Física</em>). Se o professor já existir, será atualizado automaticamente!
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={handleDownloadTeacherTemplate}
+                        className="px-3 py-1.5 bg-white border border-stone-300 hover:bg-stone-100 text-stone-800 text-xs font-semibold rounded-lg cursor-pointer"
+                      >
+                        Baixar Modelo Excel
+                      </button>
+                      <label className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer">
+                        Importar Planilha de Professores
+                        <input
+                          type="file"
+                          accept=".xlsx,.xls,.csv"
+                          onChange={handleTeacherExcelImport}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -3137,7 +3316,7 @@
                         Importar Turma via Excel (.xlsx, .xls ou .csv)
                       </p>
                       <p className="text-[11px] text-stone-600 mt-0.5">
-                        Colunas: <strong>Número</strong> | <strong>Nome</strong> | <strong>Observação</strong>. Será salvo apenas na turma selecionada: <strong className="text-amber-900 underline">{extra2 || classes[0]?.name}</strong>.
+                        Colunas: <strong>Número</strong> | <strong>Nome</strong> | <strong>Observação</strong>. Será salvo apenas na turma selecionada: <strong className="text-amber-900 underline">{extra2 || allConsolidatedClasses[0]}</strong>.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -3149,7 +3328,7 @@
                         Baixar Modelo Excel
                       </button>
                       <label className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer">
-                        Importar p/ {extra2 || classes[0]?.name}
+                        Importar p/ {extra2 || allConsolidatedClasses[0]}
                         <input
                           type="file"
                           accept=".xlsx,.xls,.csv"
@@ -3272,9 +3451,9 @@
                       className="bg-white border border-stone-300 rounded-lg px-2.5 py-1 text-xs font-semibold"
                     >
                       <option value="all">Todas as Turmas</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.name}>
-                          {c.name} ({students.filter((s) => sameClassGroup(s.classGroup, c.name)).length})
+                      {allConsolidatedClasses.map((clsName) => (
+                        <option key={clsName} value={clsName}>
+                          {clsName} ({students.filter((s) => sameClassGroup(s.classGroup, clsName)).length})
                         </option>
                       ))}
                     </select>
@@ -3635,6 +3814,117 @@
         }
       };
 
+      // Importação em lote de professores (cria novos e atualiza existentes sem duplicar)
+      const handleUpsertMultipleTeachers = async (parsedTeachers) => {
+        let createdCount = 0;
+        let updatedCount = 0;
+
+        const nextUsers = [...users];
+        const newSubjectsToCreate = [];
+        const newClassesToCreate = [];
+
+        parsedTeachers.forEach((item, idx) => {
+          const finalSubjects = item.subjects.length > 0 ? item.subjects : [subjects[0] || 'Componente Curricular'];
+          const finalClasses = item.classes;
+
+          // Registra automaticamente matérias novas que vierem na planilha
+          finalSubjects.forEach((s) => {
+            if (!subjects.some((ex) => sameText(ex, s)) && !newSubjectsToCreate.some((ex) => sameText(ex, s))) {
+              newSubjectsToCreate.push(s);
+            }
+          });
+
+          // Registra automaticamente turmas novas que vierem na planilha
+          finalClasses.forEach((c) => {
+            if (!classes.some((ex) => sameClassGroup(ex.name, c)) && !newClassesToCreate.some((ex) => sameClassGroup(ex.name, c))) {
+              newClassesToCreate.push({
+                id: `cls-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 5)}`,
+                name: c,
+                grade: c,
+                shift: 'Matutino',
+                year: CURRENT_YEAR,
+                room: '',
+              });
+            }
+          });
+
+          const existingIdx = nextUsers.findIndex(
+            (u) => u.role === 'professor' && sameText(u.name, item.name)
+          );
+
+          if (existingIdx >= 0) {
+            const existing = nextUsers[existingIdx];
+            const mergedSubjects = Array.from(new Set([...extractTeacherSubjects(existing, []), ...finalSubjects]));
+            const mergedClasses = Array.from(new Set([...extractTeacherClasses(existing), ...finalClasses]));
+            nextUsers[existingIdx] = {
+              ...existing,
+              password: item.password || existing.password || '123',
+              subject: mergedSubjects.join(', '),
+              subjects: mergedSubjects,
+              classes: mergedClasses,
+            };
+            updatedCount += 1;
+          } else {
+            nextUsers.push({
+              id: `prof-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 5)}`,
+              name: item.name,
+              username: item.name,
+              email: `${item.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '.')}@escola.gov.br`,
+              password: item.password || '123',
+              role: 'professor',
+              subject: finalSubjects.join(', '),
+              subjects: finalSubjects,
+              classes: finalClasses,
+            });
+            createdCount += 1;
+          }
+        });
+
+        setUsers(nextUsers);
+
+        if (newSubjectsToCreate.length > 0) {
+          const updatedSubjs = [...subjects, ...newSubjectsToCreate].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+          setSubjects(updatedSubjs);
+          localStorage.setItem('pre_conselho_subjects', JSON.stringify(updatedSubjs));
+          if (supabase) {
+            await supabase.from('school_subjects').insert(
+              newSubjectsToCreate.map((s, i) => ({ id: `subj-${Date.now()}-${i}`, name: s }))
+            );
+          }
+        }
+
+        if (newClassesToCreate.length > 0) {
+          setClasses((prev) => [...prev, ...newClassesToCreate]);
+          if (supabase) {
+            await supabase.from('school_classes').insert(newClassesToCreate);
+          }
+        }
+
+        if (supabase) {
+          const profsToSync = nextUsers.filter((u) => u.role === 'professor');
+          for (const p of profsToSync) {
+            const basePayload = {
+              id: p.id,
+              name: p.name,
+              username: p.username,
+              email: p.email,
+              password: p.password,
+              role: 'professor',
+              subject: p.subject,
+              classes: p.classes,
+            };
+            let { error } = await supabase.from('users').upsert({ ...basePayload, subjects: p.subjects });
+            if (error && String(error.message || '').toLowerCase().includes('subjects')) {
+              const retry = await supabase.from('users').upsert(basePayload);
+              error = retry.error;
+            }
+            if (error) reportDbError(error, 'importar professores');
+          }
+        }
+
+        return { createdCount, updatedCount };
+      };
+
       const handleDeleteTeacher = async (id) => {
         setUsers((prev) => prev.filter((u) => u.id !== id));
         if (supabase) {
@@ -3644,9 +3934,17 @@
       };
 
       const handleAddClass = async (c) => {
-        setClasses((prev) => [...prev, c]);
+        const cleanClass = {
+          id: c.id,
+          name: String(c.name || '').trim(),
+          grade: String(c.grade || c.name || '').trim(),
+          shift: c.shift || 'Matutino',
+          year: Number(c.year) || CURRENT_YEAR,
+          room: c.room || '',
+        };
+        setClasses((prev) => [...prev, cleanClass]);
         if (supabase) {
-          const { error } = await supabase.from('school_classes').insert(c);
+          const { error } = await supabase.from('school_classes').insert(cleanClass);
           reportDbError(error, 'cadastrar turma');
         }
       };
@@ -3973,6 +4271,7 @@
                     onDeleteSubject={handleDeleteSubject}
                     onAddTeacher={handleAddTeacher}
                     onUpdateTeacher={handleUpdateTeacher}
+                    onUpsertMultipleTeachers={handleUpsertMultipleTeachers}
                     onDeleteTeacher={handleDeleteTeacher}
                     onAddClass={handleAddClass}
                     onDeleteClass={handleDeleteClass}
@@ -3983,9 +4282,12 @@
                     onDeleteStudentsByClass={handleDeleteStudentsByClass}
                   />
                 )}
+                {/* [ATUALIZADO] Envia também teachers e students para consolidar todas as turmas no Gráfico */}
                 {activeTab === 'charts' && (
                   <ClassChartsDashboard
                     classes={classes}
+                    teachers={teachers}
+                    students={students}
                     reports={reports}
                   />
                 )}
