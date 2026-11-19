@@ -1,6 +1,6 @@
 {
-  "name": "Vendas de Domingo",
-  "short_name": "Vendas VIP",
+  "name": "Conselho Tech",
+  "short_name": "Conselho Frei",
   "start_url": "./natal.html",
   "display": "standalone",
   "background_color": "#070a0f",
