@@ -1,15 +1,24 @@
 {
-  "name": "Conselho Tech",
-  "short_name": "Conselho Frei",
+  "name": "Pré-Conselho Digital — Frei Graciano",
+  "short_name": "Pré-Conselho",
+  "description": "Sistema de Gestão de Pré-Conselho de Classe — E.E.C. Frei Graciano Droessler",
   "start_url": "./natal.html",
+  "scope": "./",
   "display": "standalone",
-  "background_color": "#070a0f",
-  "theme_color": "#0b0f17",
+  "background_color": "#fff5f5",
+  "theme_color": "#b91c1c",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2983/2983780.png",
+      "src": "./logo_frei.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./logo_frei.jpg",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/jpeg",
+      "purpose": "any maskable"
     }
   ]
 }
