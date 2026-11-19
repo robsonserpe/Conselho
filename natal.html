@@ -266,6 +266,36 @@
     }
 
 /* =========================================================================
+   FUNDO NATALINO NA TELA DE LOGIN (natal.jpg)
+   ========================================================================= */
+.login-christmas-bg {
+  position: relative;
+  background-color: #1c1917;
+  overflow: hidden;
+}
+
+.login-christmas-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.32) 0%, rgba(15, 23, 42, 0.48) 100%),
+    url('./natal.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.login-christmas-bg > * {
+  position: relative;
+  z-index: 1;
+}
+
+
+    
+/* =========================================================================
    TRENÓ DESLIZANDO NO RODAPÉ DA PÁGINA (NEVE ACUMULADA + TRENÓ)
    ========================================================================= */
 .xmas-bottom-snowbank {
@@ -896,11 +926,14 @@
       };
 
       return (
-        <div className={`min-h-screen flex items-center justify-center p-4 pt-10 ${
+                  <div className={`min-h-screen flex items-center justify-center p-4 pt-10 ${
           christmasMode
-            ? 'bg-gradient-to-br from-red-100/80 via-emerald-50 to-amber-50'
+            ? 'login-christmas-bg'
             : 'bg-gradient-to-br from-stone-100 via-amber-50/40 to-stone-200'
         }`}>
+
+
+        
           <div className={`max-w-md w-full bg-white/95 backdrop-blur-xs rounded-3xl shadow-xl p-8 relative ${
             christmasMode ? 'border-2 border-red-300' : 'border border-stone-200'
           }`}>
