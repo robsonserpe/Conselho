@@ -32,6 +32,21 @@
   <!-- html2pdf.js (Download direto de PDF) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+<!-- Ícone para iOS / Safari -->
+<link rel="apple-touch-icon" href="./logo_frei.jpg" />
+<meta name="theme-color" content="#b91c1c" />
+
+<link rel="manifest" href="./manifest.json" />
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { scope: './' });
+    });
+  }
+</script>
+
+
+  
   <style>
     body {
       font-family: 'Inter', sans-serif;
