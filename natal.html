@@ -4026,6 +4026,7 @@
     // =========================================================================
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
+      const [showAccountSettings, setShowAccountSettings] = useState(false);
       const [activeTab, setActiveTab] = useState('questions');
       const [loading, setLoading] = useState(true);
       const [dbError, setDbError] = useState(null);
@@ -4143,6 +4144,31 @@
         loadData();
       }, []);
 
+      const handleSaveOwnAccount = async (updatedUser) => {
+  if (supabase) {
+    const { error } = await supabase
+      .from('users')
+      .update({
+        name: updatedUser.name,
+        username: updatedUser.username,
+        password: updatedUser.password,
+      })
+      .eq('id', updatedUser.id);
+
+    if (error) {
+      reportDbError(error, 'atualizar seus dados de acesso');
+      throw new Error('Não foi possível salvar no banco de dados. Confira a conexão e tente novamente.');
+    }
+  }
+
+  setUsers((prev) =>
+    prev.map((u) => u.id === updatedUser.id ? updatedUser : u)
+  );
+
+  setCurrentUser(updatedUser);
+};
+
+      
       const handleAddSection = async (title) => {
         const newSec = { id: `sec-${Date.now()}`, title, order: sections.length + 1 };
         setSections((prev) => [...prev, newSec]);
@@ -4672,6 +4698,17 @@
                   <p className="text-[10px] text-stone-500 uppercase">{currentUser.role}</p>
                 </div>
 
+                {currentUser.role === 'professor' && (
+  <button
+    type="button"
+    onClick={() => setShowAccountSettings(true)}
+    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-xl cursor-pointer shrink-0"
+  >
+    Minha conta
+  </button>
+)}
+
+                
                 <button
                   type="button"
                   onClick={() => { setCurrentUser(null); setEditingReport(null); }}
@@ -4858,6 +4895,16 @@
             )}
           </main>
 
+          {showAccountSettings && currentUser.role === 'professor' && (
+  <TeacherAccountSettings
+    user={currentUser}
+    users={users}
+    onSave={handleSaveOwnAccount}
+    onClose={() => setShowAccountSettings(false)}
+  />
+)}
+
+          
           <AppFooter variant="page" christmasMode={christmasMode} />
 
           {viewingReport && (
