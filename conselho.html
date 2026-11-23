@@ -3582,11 +3582,198 @@
       );
     }
 
+
+function TeacherAccountSettings({ user, users, onSave, onClose }) {
+  const [name, setName] = useState(user.name || '');
+  const [username, setUsername] = useState(user.username || user.name || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    const cleanName = name.trim();
+    const cleanUsername = username.trim();
+
+    if (!cleanName || !cleanUsername) {
+      setError('Informe o nome e o usuário.');
+      return;
+    }
+
+    if (currentPassword !== user.password) {
+      setError('A senha atual está incorreta.');
+      return;
+    }
+
+    if (newPassword && newPassword.length < 6) {
+      setError('A nova senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('A confirmação da senha não confere.');
+      return;
+    }
+
+    const loginTaken = users.some((u) =>
+      u.id !== user.id &&
+      (
+        String(u.username || '').toLowerCase() === cleanUsername.toLowerCase() ||
+        String(u.name || '').toLowerCase() === cleanUsername.toLowerCase()
+      )
+    );
+
+    if (loginTaken) {
+      setError('Esse usuário já está sendo utilizado.');
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      await onSave({
+        ...user,
+        name: cleanName,
+        username: cleanUsername,
+        password: newPassword || user.password,
+      });
+
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Erro ao salvar os dados.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-stone-900/60 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+
+        <h2 className="text-lg font-extrabold text-stone-900 mb-1">
+          Minha conta
+        </h2>
+
+        <p className="text-xs text-stone-500 mb-5">
+          Altere seu nome e seus dados de acesso.
+        </p>
+
+        {error && (
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Nome do professor
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="w-full border rounded-xl px-3 py-2.5 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Usuário para entrar no sistema
+            </label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full border rounded-xl px-3 py-2.5 text-sm"
+            />
+          </div>
+
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-bold mb-2">
+              Alterar senha
+            </h3>
+
+            <p className="text-[11px] text-stone-500 mb-3">
+              Informe a senha atual para confirmar sua identidade.
+              Se não quiser trocar a senha, deixe os campos de nova
+              senha vazios.
+            </p>
+
+            <label className="block text-xs font-bold mb-1">
+              Senha atual
+            </label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              required
+              className="w-full border rounded-xl px-3 py-2.5 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Nova senha
+            </label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Mínimo de 6 caracteres"
+              className="w-full border rounded-xl px-3 py-2.5 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Confirmar nova senha
+            </label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2.5 text-sm"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl bg-stone-100 text-stone-700 text-xs font-bold"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="px-4 py-2.5 rounded-xl bg-amber-700 text-white text-xs font-bold disabled:opacity-60"
+            >
+              {saving ? 'Salvando...' : 'Salvar alterações'}
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  );
+}
+
+
+    
     // =========================================================================
     // 13. APLICAÇÃO PRINCIPAL (APP) COM INTEGRAÇÃO SUPABASE
     // =========================================================================
     function App() {
       const [currentUser, setCurrentUser] = useState(null);
+      const [showAccountSettings, setShowAccountSettings] = useState(false);
       const [activeTab, setActiveTab] = useState('questions');
       const [loading, setLoading] = useState(true);
       const [dbError, setDbError] = useState(null);
@@ -3703,6 +3890,31 @@
         loadData();
       }, []);
 
+      const handleSaveOwnAccount = async (updatedUser) => {
+  if (supabase) {
+    const { error } = await supabase
+      .from('users')
+      .update({
+        name: updatedUser.name,
+        username: updatedUser.username,
+        password: updatedUser.password,
+      })
+      .eq('id', updatedUser.id);
+
+    if (error) {
+      reportDbError(error, 'atualizar seus dados de acesso');
+      throw new Error('Não foi possível salvar no banco de dados. Confira a conexão e tente novamente.');
+    }
+  }
+
+  setUsers((prev) =>
+    prev.map((u) => u.id === updatedUser.id ? updatedUser : u)
+  );
+
+  setCurrentUser(updatedUser);
+};
+
+      
       const handleAddSection = async (title) => {
         const newSec = { id: `sec-${Date.now()}`, title, order: sections.length + 1 };
         setSections((prev) => [...prev, newSec]);
@@ -4207,6 +4419,17 @@
                   <p className="text-[10px] text-stone-500 uppercase">{currentUser.role}</p>
                 </div>
 
+                {currentUser.role === 'professor' && (
+  <button
+    type="button"
+    onClick={() => setShowAccountSettings(true)}
+    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold rounded-xl cursor-pointer shrink-0"
+  >
+    Minha conta
+  </button>
+)}
+
+                
                 <button
                   type="button"
                   onClick={() => { setCurrentUser(null); setEditingReport(null); }}
@@ -4389,7 +4612,14 @@
               </div>
             )}
           </main>
-
+          {showAccountSettings && currentUser.role === 'professor' && (
+  <TeacherAccountSettings
+    user={currentUser}
+    users={users}
+    onSave={handleSaveOwnAccount}
+    onClose={() => setShowAccountSettings(false)}
+  />
+)}
           <AppFooter variant="page" />
 
           {viewingReport && (
